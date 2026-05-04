@@ -1,0 +1,157 @@
+<?php
+
+namespace NextDeveloper\Flow\Http\Controllers\ItemValues;
+
+use Illuminate\Http\Request;
+use NextDeveloper\Flow\Http\Controllers\AbstractController;
+use NextDeveloper\Commons\Http\Response\ResponsableFactory;
+use NextDeveloper\Flow\Http\Requests\ItemValues\ItemValuesUpdateRequest;
+use NextDeveloper\Flow\Database\Filters\ItemValuesQueryFilter;
+use NextDeveloper\Flow\Database\Models\ItemValues;
+use NextDeveloper\Flow\Services\ItemValuesService;
+use NextDeveloper\Flow\Http\Requests\ItemValues\ItemValuesCreateRequest;
+use NextDeveloper\Commons\Http\Traits\Tags as TagsTrait;use NextDeveloper\Commons\Http\Traits\Addresses as AddressesTrait;
+class ItemValuesController extends AbstractController
+{
+    private $model = ItemValues::class;
+
+    use TagsTrait;
+    use AddressesTrait;
+    /**
+     * This method returns the list of itemvalues.
+     *
+     * optional http params:
+     * - paginate: If you set paginate parameter, the result will be returned paginated.
+     *
+     * @param  ItemValuesQueryFilter $filter  An object that builds search query
+     * @param  Request               $request Laravel request object, this holds all data about request. Automatically populated.
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function index(ItemValuesQueryFilter $filter, Request $request)
+    {
+        $data = ItemValuesService::get($filter, $request->all());
+
+        return ResponsableFactory::makeResponse($this, $data);
+    }
+
+    /**
+     * This function returns the list of actions that can be performed on this object.
+     *
+     * @return void
+     */
+    public function getActions()
+    {
+        $data = ItemValuesService::getActions();
+
+        return ResponsableFactory::makeResponse($this, $data);
+    }
+
+    /**
+     * Makes the related action to the object
+     *
+     * @param  $objectId
+     * @param  $action
+     * @return array
+     */
+    public function doAction($objectId, $action)
+    {
+        $actionId = ItemValuesService::doAction($objectId, $action, request()->all());
+
+        return $this->withArray(
+            [
+            'action_id' =>  $actionId
+            ]
+        );
+    }
+
+    /**
+     * This method receives ID for the related model and returns the item to the client.
+     *
+     * @param  $itemValuesId
+     * @return mixed|null
+     * @throws \Laravel\Octane\Exceptions\DdException
+     */
+    public function show($ref)
+    {
+        //  Here we are not using Laravel Route Model Binding. Please check routeBinding.md file
+        //  in NextDeveloper Platform Project
+        $model = ItemValuesService::getByRef($ref);
+
+        return ResponsableFactory::makeResponse($this, $model);
+    }
+
+    /**
+     * This method returns the list of sub objects the related object. Sub object means an object which is preowned by
+     * this object.
+     *
+     * It can be tags, addresses, states etc.
+     *
+     * @param  $ref
+     * @param  $subObject
+     * @return void
+     */
+    public function relatedObjects($ref, $subObject)
+    {
+        $objects = ItemValuesService::relatedObjects($ref, $subObject);
+
+        return ResponsableFactory::makeResponse($this, $objects);
+    }
+
+    /**
+     * This method created ItemValues object on database.
+     *
+     * @param  ItemValuesCreateRequest $request
+     * @return mixed|null
+     * @throws \NextDeveloper\Commons\Exceptions\CannotCreateModelException
+     */
+    public function store(ItemValuesCreateRequest $request)
+    {
+        if($request->has('validateOnly') && $request->get('validateOnly') == true) {
+            return [
+                'validation'    =>  'success'
+            ];
+        }
+
+        $model = ItemValuesService::create($request->validated());
+
+        return ResponsableFactory::makeResponse($this, $model);
+    }
+
+    /**
+     * This method updates ItemValues object on database.
+     *
+     * @param  $itemValuesId
+     * @param  ItemValuesUpdateRequest $request
+     * @return mixed|null
+     * @throws \NextDeveloper\Commons\Exceptions\CannotCreateModelException
+     */
+    public function update($itemValuesId, ItemValuesUpdateRequest $request)
+    {
+        if($request->has('validateOnly') && $request->get('validateOnly') == true) {
+            return [
+                'validation'    =>  'success'
+            ];
+        }
+
+        $model = ItemValuesService::update($itemValuesId, $request->validated());
+
+        return ResponsableFactory::makeResponse($this, $model);
+    }
+
+    /**
+     * This method updates ItemValues object on database.
+     *
+     * @param  $itemValuesId
+     * @return mixed|null
+     * @throws \NextDeveloper\Commons\Exceptions\CannotCreateModelException
+     */
+    public function destroy($itemValuesId)
+    {
+        $model = ItemValuesService::delete($itemValuesId);
+
+        return $this->noContent();
+    }
+
+    // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
+}
