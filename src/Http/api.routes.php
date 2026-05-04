@@ -190,6 +190,81 @@ Route::prefix('item-watchers')->group(
     }
 );
 
+Route::prefix('items-perspective')->group(
+    function () {
+        Route::get('/', 'ItemsPerspective\ItemsPerspectiveController@index');
+        Route::get('/actions', 'ItemsPerspective\ItemsPerspectiveController@getActions');
+
+        Route::get('{flow_items_perspective}/tags ', 'ItemsPerspective\ItemsPerspectiveController@tags');
+        Route::post('{flow_items_perspective}/tags ', 'ItemsPerspective\ItemsPerspectiveController@saveTags');
+        Route::get('{flow_items_perspective}/addresses ', 'ItemsPerspective\ItemsPerspectiveController@addresses');
+        Route::post('{flow_items_perspective}/addresses ', 'ItemsPerspective\ItemsPerspectiveController@saveAddresses');
+
+        Route::get('/{flow_items_perspective}/{subObjects}', 'ItemsPerspective\ItemsPerspectiveController@relatedObjects');
+        Route::get('/{flow_items_perspective}', 'ItemsPerspective\ItemsPerspectiveController@show');
+
+        Route::post('/', 'ItemsPerspective\ItemsPerspectiveController@store');
+        Route::post('/{flow_items_perspective}/do/{action}', 'ItemsPerspective\ItemsPerspectiveController@doAction');
+
+        Route::patch('/{flow_items_perspective}', 'ItemsPerspective\ItemsPerspectiveController@update');
+        Route::delete('/{flow_items_perspective}', 'ItemsPerspective\ItemsPerspectiveController@destroy');
+    }
+);
+
+Route::prefix('pipelines-perspective')->group(
+    function () {
+        Route::get('/', 'PipelinesPerspective\PipelinesPerspectiveController@index');
+        Route::get('/actions', 'PipelinesPerspective\PipelinesPerspectiveController@getActions');
+
+        Route::get('{flow_pipelines_perspective}/tags ', 'PipelinesPerspective\PipelinesPerspectiveController@tags');
+        Route::post('{flow_pipelines_perspective}/tags ', 'PipelinesPerspective\PipelinesPerspectiveController@saveTags');
+        Route::get('{flow_pipelines_perspective}/addresses ', 'PipelinesPerspective\PipelinesPerspectiveController@addresses');
+        Route::post('{flow_pipelines_perspective}/addresses ', 'PipelinesPerspective\PipelinesPerspectiveController@saveAddresses');
+
+        Route::get('/{flow_pipelines_perspective}/{subObjects}', 'PipelinesPerspective\PipelinesPerspectiveController@relatedObjects');
+        Route::get('/{flow_pipelines_perspective}', 'PipelinesPerspective\PipelinesPerspectiveController@show');
+
+        Route::post('/', 'PipelinesPerspective\PipelinesPerspectiveController@store');
+        Route::post('/{flow_pipelines_perspective}/do/{action}', 'PipelinesPerspective\PipelinesPerspectiveController@doAction');
+
+        Route::patch('/{flow_pipelines_perspective}', 'PipelinesPerspective\PipelinesPerspectiveController@update');
+        Route::delete('/{flow_pipelines_perspective}', 'PipelinesPerspective\PipelinesPerspectiveController@destroy');
+    }
+);
+
+Route::prefix('stage-history-perspective')->group(
+    function () {
+        Route::get('/', 'StageHistoryPerspective\StageHistoryPerspectiveController@index');
+        Route::get('/actions', 'StageHistoryPerspective\StageHistoryPerspectiveController@getActions');
+
+        Route::get('{flow_stage_history_perspective}/tags ', 'StageHistoryPerspective\StageHistoryPerspectiveController@tags');
+        Route::post('{flow_stage_history_perspective}/tags ', 'StageHistoryPerspective\StageHistoryPerspectiveController@saveTags');
+        Route::get('{flow_stage_history_perspective}/addresses ', 'StageHistoryPerspective\StageHistoryPerspectiveController@addresses');
+        Route::post('{flow_stage_history_perspective}/addresses ', 'StageHistoryPerspective\StageHistoryPerspectiveController@saveAddresses');
+
+        Route::get('/{flow_stage_history_perspective}/{subObjects}', 'StageHistoryPerspective\StageHistoryPerspectiveController@relatedObjects');
+        Route::get('/{flow_stage_history_perspective}', 'StageHistoryPerspective\StageHistoryPerspectiveController@show');
+
+        Route::post('/', 'StageHistoryPerspective\StageHistoryPerspectiveController@store');
+        Route::post('/{flow_stage_history_perspective}/do/{action}', 'StageHistoryPerspective\StageHistoryPerspectiveController@doAction');
+
+        Route::patch('/{flow_stage_history_perspective}', 'StageHistoryPerspective\StageHistoryPerspectiveController@update');
+        Route::delete('/{flow_stage_history_perspective}', 'StageHistoryPerspective\StageHistoryPerspectiveController@destroy');
+    }
+);
+
 // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
-});
+
+
+
+
+
+
+
+
+
+
+
+
+
