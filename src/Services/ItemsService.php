@@ -2,11 +2,8 @@
 
 namespace NextDeveloper\Flow\Services;
 
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use NextDeveloper\Flow\Services\AbstractServices\AbstractItemsService;
 use NextDeveloper\Flow\Database\Models\Items;
-use NextDeveloper\Flow\Database\Models\Stages;
 use NextDeveloper\Flow\Database\Models\StageHistories;
 use NextDeveloper\Flow\Database\Models\Automations;
 use NextDeveloper\Flow\Database\Models\StageRequiredColumns;
@@ -32,8 +29,7 @@ class ItemsService extends AbstractItemsService
     public static function create(array $data)
     {
         if (!empty($data['object_id']) && !empty($data['object_type']) && Str::isUuid($data['object_id'])) {
-            $table = Str::plural($data['object_type']);
-            $data['object_id'] = DB::table($table)->where('uuid', $data['object_id'])->value('id');
+            $data['object_id'] = self::resolveObjectId($data['object_type'], $data['object_id']);
         }
 
         $item = parent::create($data);
@@ -211,6 +207,33 @@ class ItemsService extends AbstractItemsService
         }
 
         Events::fire('item_stage_changed:NextDeveloper\Flow\Items', $item);
+    }
+
+    /**
+     * Converts a short namespace (e.g. \NextDeveloper\CRM\Opportunities) and a UUID
+     * into the integer primary key by routing through the full model class so that
+     * authorization scopes are enforced and arbitrary table access is prevented.
+     */
+    private static function resolveObjectId(string $objectType, string $uuid): int
+    {
+        $parts      = explode('\\', ltrim($objectType, '\\'));
+        $className  = array_pop($parts);
+        $modelClass = '\\' . implode('\\', $parts) . '\\Database\\Models\\' . $className;
+
+        if (!class_exists($modelClass)) {
+            throw new NotAllowedException('Invalid object_type: ' . $objectType);
+        }
+
+        $object = $modelClass::where('uuid', $uuid)->first();
+
+        if (!$object) {
+            throw new NotAllowedException(
+                'Cannot find or access the referenced object. ' .
+                'Check that the object exists and that you have permission to use it.'
+            );
+        }
+
+        return $object->id;
     }
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
