@@ -2,6 +2,7 @@
 
 namespace NextDeveloper\Flow\Services;
 
+use Illuminate\Support\Str;
 use NextDeveloper\Flow\Services\AbstractServices\AbstractItemsService;
 use NextDeveloper\Flow\Database\Models\Items;
 use NextDeveloper\Flow\Database\Models\StageHistories;
@@ -23,7 +24,10 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class ItemsService extends AbstractItemsService
 {
-    /**
+
+    // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
+        /**
      * Creates the item, records the initial history entry and fires item_created automations.
      */
     public static function create(array $data)
@@ -235,6 +239,4 @@ class ItemsService extends AbstractItemsService
 
         return $object->id;
     }
-
-    // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 }
