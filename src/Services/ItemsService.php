@@ -2,6 +2,8 @@
 
 namespace NextDeveloper\Flow\Services;
 
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use NextDeveloper\Flow\Services\AbstractServices\AbstractItemsService;
 use NextDeveloper\Flow\Database\Models\Items;
 use NextDeveloper\Flow\Database\Models\Stages;
@@ -29,6 +31,11 @@ class ItemsService extends AbstractItemsService
      */
     public static function create(array $data)
     {
+        if (!empty($data['object_id']) && !empty($data['object_type']) && Str::isUuid($data['object_id'])) {
+            $table = Str::plural($data['object_type']);
+            $data['object_id'] = DB::table($table)->where('uuid', $data['object_id'])->value('id');
+        }
+
         $item = parent::create($data);
 
         StageHistories::create([
