@@ -3,6 +3,7 @@
 namespace NextDeveloper\Flow\Http\Transformers;
 
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Str;
 use NextDeveloper\Commons\Common\Cache\CacheHelper;
 use NextDeveloper\Flow\Database\Models\ItemsPerspective;
 use NextDeveloper\Commons\Http\Transformers\AbstractTransformer;
@@ -33,11 +34,31 @@ class ItemsPerspectiveTransformer extends AbstractItemsPerspectiveTransformer
 
         $transformed = parent::transform($model);
 
+        $transformed['object_id'] = $this->resolveObjectUuid(
+            $model->object_type,
+            $model->object_id
+        );
+
         Cache::set(
             CacheHelper::getKey('ItemsPerspective', $model->uuid, 'Transformed'),
             $transformed
         );
 
         return $transformed;
+    }
+
+    private function resolveObjectUuid(string $objectType, int $objectId): ?string
+    {
+        $parts      = explode('\\', ltrim($objectType, '\\'));
+        $className  = array_pop($parts);
+        $modelClass = '\\' . implode('\\', $parts) . '\\Database\\Models\\' . $className;
+
+        if (!class_exists($modelClass)) {
+            return null;
+        }
+
+        $object = $modelClass::withoutGlobalScopes()->where('id', $objectId)->first();
+
+        return $object?->uuid;
     }
 }
