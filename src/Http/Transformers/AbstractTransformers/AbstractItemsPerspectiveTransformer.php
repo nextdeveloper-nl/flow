@@ -56,10 +56,9 @@ class AbstractItemsPerspectiveTransformer extends AbstractTransformer
     {
                                                 $flowPipelineId = \NextDeveloper\Flow\Database\Models\Pipelines::where('id', $model->flow_pipeline_id)->first();
                                                             $flowStageId = \NextDeveloper\Flow\Database\Models\Stages::where('id', $model->flow_stage_id)->first();
-                                                            $assignedIamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->assigned_iam_user_id)->first();
                                                             $iamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->iam_account_id)->first();
                                                             $iamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->iam_user_id)->first();
-
+                        
         return $this->buildPayload(
             [
             'id'  =>  $model->uuid,
@@ -70,7 +69,6 @@ class AbstractItemsPerspectiveTransformer extends AbstractTransformer
             'position'  =>  $model->position,
             'last_stage_changed_at'  =>  $model->last_stage_changed_at,
             'checklist_state'  =>  $model->checklist_state,
-            'assigned_iam_user_id'  =>  $assignedIamUserId ? $assignedIamUserId->uuid : null,
             'iam_account_id'  =>  $iamAccountId ? $iamAccountId->uuid : null,
             'iam_user_id'  =>  $iamUserId ? $iamUserId->uuid : null,
             'created_at'  =>  $model->created_at,
@@ -171,6 +169,7 @@ class AbstractItemsPerspectiveTransformer extends AbstractTransformer
         return $this->collection($addresses, new AddressesTransformer());
     }
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 
 
 

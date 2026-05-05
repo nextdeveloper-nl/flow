@@ -4,7 +4,7 @@ namespace NextDeveloper\Flow\Database\Filters;
 
 use Illuminate\Database\Eloquent\Builder;
 use NextDeveloper\Commons\Database\Filters\AbstractQueryFilter;
-                    
+                
 
 /**
  * This class automatically puts where clause on database so that use can filter
@@ -181,22 +181,8 @@ class ItemsQueryFilter extends AbstractQueryFilter
     }
 
     
-    public function assignedIamUserId($value)
-    {
-            $assignedIamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
-
-        if($assignedIamUser) {
-            return $this->builder->where('assigned_iam_user_id', '=', $assignedIamUser->id);
-        }
-    }
-
-        //  This is an alias function of assignedIamUser
-    public function assigned_iam_user_id($value)
-    {
-        return $this->assignedIamUser($value);
-    }
-    
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 
 
 

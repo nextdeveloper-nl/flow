@@ -20,7 +20,6 @@ class ItemsUpdateRequest extends AbstractFormRequest
         'position' => 'integer',
         'last_stage_changed_at' => 'date',
         'checklist_state' => 'nullable',
-        'assigned_iam_user_id' => 'nullable|exists:iam_users,uuid|uuid',
         ];
     }
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE

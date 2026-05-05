@@ -27,7 +27,6 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property integer $position
  * @property \Carbon\Carbon $last_stage_changed_at
  * @property $checklist_state
- * @property integer $assigned_iam_user_id
  * @property integer $iam_account_id
  * @property integer $iam_user_id
  * @property \Carbon\Carbon $created_at
@@ -64,7 +63,6 @@ class ItemsPerspective extends Model
             'position',
             'last_stage_changed_at',
             'checklist_state',
-            'assigned_iam_user_id',
             'iam_account_id',
             'iam_user_id',
             'stage_name',
@@ -104,7 +102,6 @@ class ItemsPerspective extends Model
     'position' => 'integer',
     'last_stage_changed_at' => 'datetime',
     'checklist_state' => 'array',
-    'assigned_iam_user_id' => 'integer',
     'created_at' => 'datetime',
     'updated_at' => 'datetime',
     'deleted_at' => 'datetime',
@@ -176,6 +173,7 @@ class ItemsPerspective extends Model
     }
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 
 
 

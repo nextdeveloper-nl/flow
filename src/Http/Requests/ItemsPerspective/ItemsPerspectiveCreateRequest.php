@@ -20,7 +20,6 @@ class ItemsPerspectiveCreateRequest extends AbstractFormRequest
         'position' => 'nullable|integer',
         'last_stage_changed_at' => 'nullable|date',
         'checklist_state' => 'nullable',
-        'assigned_iam_user_id' => 'nullable|exists:assigned_iam_users,uuid|uuid',
         'stage_name' => 'nullable|string',
         'stage_color' => 'nullable|string',
         'stage_sla_days' => 'nullable|integer',
