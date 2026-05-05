@@ -127,7 +127,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     
     public function fromStageId($value)
     {
-            $fromStage = \NextDeveloper\\Database\Models\FromStages::where('uuid', $value)->first();
+            $fromStage = \NextDeveloper\Flow\Database\Models\Stages::where('uuid', $value)->first();
 
         if($fromStage) {
             return $this->builder->where('from_stage_id', '=', $fromStage->id);
@@ -142,7 +142,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     
     public function toStageId($value)
     {
-            $toStage = \NextDeveloper\\Database\Models\ToStages::where('uuid', $value)->first();
+            $toStage = \NextDeveloper\Flow\Database\Models\Stages::where('uuid', $value)->first();
 
         if($toStage) {
             return $this->builder->where('to_stage_id', '=', $toStage->id);
@@ -157,7 +157,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     
     public function movedByIamUserId($value)
     {
-            $movedByIamUser = \NextDeveloper\\Database\Models\MovedByIamUsers::where('uuid', $value)->first();
+            $movedByIamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
 
         if($movedByIamUser) {
             return $this->builder->where('moved_by_iam_user_id', '=', $movedByIamUser->id);
@@ -171,6 +171,9 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     }
     
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
+
+
 
 
 

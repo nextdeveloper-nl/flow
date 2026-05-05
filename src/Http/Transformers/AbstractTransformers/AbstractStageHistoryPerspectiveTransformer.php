@@ -56,9 +56,9 @@ class AbstractStageHistoryPerspectiveTransformer extends AbstractTransformer
     {
                                                 $flowItemId = \NextDeveloper\Flow\Database\Models\Items::where('id', $model->flow_item_id)->first();
                                                             $flowPipelineId = \NextDeveloper\Flow\Database\Models\Pipelines::where('id', $model->flow_pipeline_id)->first();
-                                                            $fromStageId = \NextDeveloper\\Database\Models\FromStages::where('id', $model->from_stage_id)->first();
-                                                            $toStageId = \NextDeveloper\\Database\Models\ToStages::where('id', $model->to_stage_id)->first();
-                                                            $movedByIamUserId = \NextDeveloper\\Database\Models\MovedByIamUsers::where('id', $model->moved_by_iam_user_id)->first();
+                                                            $fromStageId = \NextDeveloper\Flow\Database\Models\Stages::where('id', $model->from_stage_id)->first();
+                                                            $toStageId = \NextDeveloper\Flow\Database\Models\Stages::where('id', $model->to_stage_id)->first();
+                                                            $movedByIamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->moved_by_iam_user_id)->first();
                         
         return $this->buildPayload(
             [
@@ -162,6 +162,9 @@ class AbstractStageHistoryPerspectiveTransformer extends AbstractTransformer
         return $this->collection($addresses, new AddressesTransformer());
     }
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
+
+
 
 
 

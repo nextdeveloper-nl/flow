@@ -275,4 +275,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->objectId($value);
     }
+
+
+
 }
