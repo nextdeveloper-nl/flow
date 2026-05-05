@@ -62,7 +62,7 @@ class AbstractStageHistoryPerspectiveTransformer extends AbstractTransformer
                         
         return $this->buildPayload(
             [
-            'id'  =>  $model->id,
+            'id'  =>  $model->uuid,
             'flow_item_id'  =>  $flowItemId ? $flowItemId->uuid : null,
             'flow_pipeline_id'  =>  $flowPipelineId ? $flowPipelineId->uuid : null,
             'from_stage_id'  =>  $fromStageId ? $fromStageId->uuid : null,
@@ -162,4 +162,5 @@ class AbstractStageHistoryPerspectiveTransformer extends AbstractTransformer
         return $this->collection($addresses, new AddressesTransformer());
     }
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 }

@@ -190,24 +190,24 @@ Route::prefix('item-watchers')->group(
     }
 );
 
-Route::prefix('items-perspective')->group(
+Route::prefix('stage-history-perspective')->group(
     function () {
-        Route::get('/', 'ItemsPerspective\ItemsPerspectiveController@index');
-        Route::get('/actions', 'ItemsPerspective\ItemsPerspectiveController@getActions');
+        Route::get('/', 'StageHistoryPerspective\StageHistoryPerspectiveController@index');
+        Route::get('/actions', 'StageHistoryPerspective\StageHistoryPerspectiveController@getActions');
 
-        Route::get('{flow_items_perspective}/tags ', 'ItemsPerspective\ItemsPerspectiveController@tags');
-        Route::post('{flow_items_perspective}/tags ', 'ItemsPerspective\ItemsPerspectiveController@saveTags');
-        Route::get('{flow_items_perspective}/addresses ', 'ItemsPerspective\ItemsPerspectiveController@addresses');
-        Route::post('{flow_items_perspective}/addresses ', 'ItemsPerspective\ItemsPerspectiveController@saveAddresses');
+        Route::get('{flow_stage_history_perspective}/tags ', 'StageHistoryPerspective\StageHistoryPerspectiveController@tags');
+        Route::post('{flow_stage_history_perspective}/tags ', 'StageHistoryPerspective\StageHistoryPerspectiveController@saveTags');
+        Route::get('{flow_stage_history_perspective}/addresses ', 'StageHistoryPerspective\StageHistoryPerspectiveController@addresses');
+        Route::post('{flow_stage_history_perspective}/addresses ', 'StageHistoryPerspective\StageHistoryPerspectiveController@saveAddresses');
 
-        Route::get('/{flow_items_perspective}/{subObjects}', 'ItemsPerspective\ItemsPerspectiveController@relatedObjects');
-        Route::get('/{flow_items_perspective}', 'ItemsPerspective\ItemsPerspectiveController@show');
+        Route::get('/{flow_stage_history_perspective}/{subObjects}', 'StageHistoryPerspective\StageHistoryPerspectiveController@relatedObjects');
+        Route::get('/{flow_stage_history_perspective}', 'StageHistoryPerspective\StageHistoryPerspectiveController@show');
 
-        Route::post('/', 'ItemsPerspective\ItemsPerspectiveController@store');
-        Route::post('/{flow_items_perspective}/do/{action}', 'ItemsPerspective\ItemsPerspectiveController@doAction');
+        Route::post('/', 'StageHistoryPerspective\StageHistoryPerspectiveController@store');
+        Route::post('/{flow_stage_history_perspective}/do/{action}', 'StageHistoryPerspective\StageHistoryPerspectiveController@doAction');
 
-        Route::patch('/{flow_items_perspective}', 'ItemsPerspective\ItemsPerspectiveController@update');
-        Route::delete('/{flow_items_perspective}', 'ItemsPerspective\ItemsPerspectiveController@destroy');
+        Route::patch('/{flow_stage_history_perspective}', 'StageHistoryPerspective\StageHistoryPerspectiveController@update');
+        Route::delete('/{flow_stage_history_perspective}', 'StageHistoryPerspective\StageHistoryPerspectiveController@destroy');
     }
 );
 
@@ -232,27 +232,39 @@ Route::prefix('pipelines-perspective')->group(
     }
 );
 
-Route::prefix('stage-history-perspective')->group(
+Route::prefix('items-perspective')->group(
     function () {
-        Route::get('/', 'StageHistoryPerspective\StageHistoryPerspectiveController@index');
-        Route::get('/actions', 'StageHistoryPerspective\StageHistoryPerspectiveController@getActions');
+        Route::get('/', 'ItemsPerspective\ItemsPerspectiveController@index');
+        Route::get('/actions', 'ItemsPerspective\ItemsPerspectiveController@getActions');
 
-        Route::get('{flow_stage_history_perspective}/tags ', 'StageHistoryPerspective\StageHistoryPerspectiveController@tags');
-        Route::post('{flow_stage_history_perspective}/tags ', 'StageHistoryPerspective\StageHistoryPerspectiveController@saveTags');
-        Route::get('{flow_stage_history_perspective}/addresses ', 'StageHistoryPerspective\StageHistoryPerspectiveController@addresses');
-        Route::post('{flow_stage_history_perspective}/addresses ', 'StageHistoryPerspective\StageHistoryPerspectiveController@saveAddresses');
+        Route::get('{flow_items_perspective}/tags ', 'ItemsPerspective\ItemsPerspectiveController@tags');
+        Route::post('{flow_items_perspective}/tags ', 'ItemsPerspective\ItemsPerspectiveController@saveTags');
+        Route::get('{flow_items_perspective}/addresses ', 'ItemsPerspective\ItemsPerspectiveController@addresses');
+        Route::post('{flow_items_perspective}/addresses ', 'ItemsPerspective\ItemsPerspectiveController@saveAddresses');
 
-        Route::get('/{flow_stage_history_perspective}/{subObjects}', 'StageHistoryPerspective\StageHistoryPerspectiveController@relatedObjects');
-        Route::get('/{flow_stage_history_perspective}', 'StageHistoryPerspective\StageHistoryPerspectiveController@show');
+        Route::get('/{flow_items_perspective}/{subObjects}', 'ItemsPerspective\ItemsPerspectiveController@relatedObjects');
+        Route::get('/{flow_items_perspective}', 'ItemsPerspective\ItemsPerspectiveController@show');
 
-        Route::post('/', 'StageHistoryPerspective\StageHistoryPerspectiveController@store');
-        Route::post('/{flow_stage_history_perspective}/do/{action}', 'StageHistoryPerspective\StageHistoryPerspectiveController@doAction');
+        Route::post('/', 'ItemsPerspective\ItemsPerspectiveController@store');
+        Route::post('/{flow_items_perspective}/do/{action}', 'ItemsPerspective\ItemsPerspectiveController@doAction');
 
-        Route::patch('/{flow_stage_history_perspective}', 'StageHistoryPerspective\StageHistoryPerspectiveController@update');
-        Route::delete('/{flow_stage_history_perspective}', 'StageHistoryPerspective\StageHistoryPerspectiveController@destroy');
+        Route::patch('/{flow_items_perspective}', 'ItemsPerspective\ItemsPerspectiveController@update');
+        Route::delete('/{flow_items_perspective}', 'ItemsPerspective\ItemsPerspectiveController@destroy');
     }
 );
 
 // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
-});
+
+
+
+
+
+
+
+
+
+
+
+
+

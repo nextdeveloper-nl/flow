@@ -18,6 +18,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  *
  * @package  NextDeveloper\Flow\Database\Models
  * @property integer $id
+ * @property string $uuid
  * @property integer $flow_item_id
  * @property integer $flow_pipeline_id
  * @property integer $from_stage_id
@@ -149,4 +150,5 @@ class StageHistoryPerspective extends Model
     }
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 }

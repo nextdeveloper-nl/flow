@@ -19,6 +19,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  *
  * @package  NextDeveloper\Flow\Database\Models
  * @property integer $id
+ * @property string $uuid
  * @property integer $flow_pipeline_id
  * @property integer $flow_stage_id
  * @property string $object_type
@@ -175,4 +176,5 @@ class ItemsPerspective extends Model
     }
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 }

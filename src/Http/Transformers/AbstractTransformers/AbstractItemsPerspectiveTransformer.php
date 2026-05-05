@@ -56,13 +56,13 @@ class AbstractItemsPerspectiveTransformer extends AbstractTransformer
     {
                                                 $flowPipelineId = \NextDeveloper\Flow\Database\Models\Pipelines::where('id', $model->flow_pipeline_id)->first();
                                                             $flowStageId = \NextDeveloper\Flow\Database\Models\Stages::where('id', $model->flow_stage_id)->first();
-                                                            $assignedIamUserId = \NextDeveloper\\Database\Models\AssignedIamUsers::where('id', $model->assigned_iam_user_id)->first();
+                                                            $assignedIamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->assigned_iam_user_id)->first();
                                                             $iamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->iam_account_id)->first();
                                                             $iamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->iam_user_id)->first();
-                        
+
         return $this->buildPayload(
             [
-            'id'  =>  $model->id,
+            'id'  =>  $model->uuid,
             'flow_pipeline_id'  =>  $flowPipelineId ? $flowPipelineId->uuid : null,
             'flow_stage_id'  =>  $flowStageId ? $flowStageId->uuid : null,
             'object_type'  =>  $model->object_type,
@@ -171,4 +171,5 @@ class AbstractItemsPerspectiveTransformer extends AbstractTransformer
         return $this->collection($addresses, new AddressesTransformer());
     }
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 }

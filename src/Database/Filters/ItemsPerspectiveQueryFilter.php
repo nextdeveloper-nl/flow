@@ -4,7 +4,7 @@ namespace NextDeveloper\Flow\Database\Filters;
 
 use Illuminate\Database\Eloquent\Builder;
 use NextDeveloper\Commons\Database\Filters\AbstractQueryFilter;
-                    
+
 
 /**
  * This class automatically puts where clause on database so that use can filter
@@ -17,7 +17,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function objectType($value)
     {
         return $this->builder->where('object_type', 'ilike', '%' . $value . '%');
@@ -28,7 +28,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->objectType($value);
     }
-        
+
     public function stageName($value)
     {
         return $this->builder->where('stage_name', 'ilike', '%' . $value . '%');
@@ -39,7 +39,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->stageName($value);
     }
-        
+
     public function stageColor($value)
     {
         return $this->builder->where('stage_color', 'ilike', '%' . $value . '%');
@@ -50,7 +50,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->stageColor($value);
     }
-        
+
     public function objectName($value)
     {
         return $this->builder->where('object_name', 'ilike', '%' . $value . '%');
@@ -61,7 +61,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->objectName($value);
     }
-        
+
     public function objectSubtitle($value)
     {
         return $this->builder->where('object_subtitle', 'ilike', '%' . $value . '%');
@@ -72,7 +72,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->objectSubtitle($value);
     }
-    
+
     public function position($value)
     {
         $operator = substr($value, 0, 1);
@@ -86,7 +86,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
         return $this->builder->where('position', $operator, $value);
     }
 
-    
+
     public function stageSlaDays($value)
     {
         $operator = substr($value, 0, 1);
@@ -105,7 +105,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->stageSlaDays($value);
     }
-    
+
     public function lastStageChangedAtStart($date)
     {
         return $this->builder->where('last_stage_changed_at', '>=', $date);
@@ -208,7 +208,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->flowPipeline($value);
     }
-    
+
     public function flowStageId($value)
     {
             $flowStage = \NextDeveloper\Flow\Database\Models\Stages::where('uuid', $value)->first();
@@ -223,10 +223,10 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->flowStage($value);
     }
-    
+
     public function assignedIamUserId($value)
     {
-            $assignedIamUser = \NextDeveloper\\Database\Models\AssignedIamUsers::where('uuid', $value)->first();
+            $assignedIamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
 
         if($assignedIamUser) {
             return $this->builder->where('assigned_iam_user_id', '=', $assignedIamUser->id);
@@ -238,7 +238,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->assignedIamUser($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -248,7 +248,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function iamUserId($value)
     {
             $iamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
@@ -258,6 +258,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 }
