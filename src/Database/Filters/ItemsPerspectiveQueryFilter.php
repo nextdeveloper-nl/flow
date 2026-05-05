@@ -246,7 +246,33 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
     
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
+    public function objectId($value)
+    {
+        $objectType = request('object_type');
 
+        if (!$objectType) {
+            return $this->builder;
+        }
 
+        $parts      = explode('\\', ltrim($objectType, '\\'));
+        $className  = array_pop($parts);
+        $modelClass = '\\' . implode('\\', $parts) . '\\Database\\Models\\' . $className;
 
+        if (!class_exists($modelClass)) {
+            return $this->builder;
+        }
+
+        $object = $modelClass::withoutGlobalScopes()->where('uuid', $value)->first();
+
+        if (!$object) {
+            return $this->builder->whereRaw('1 = 0');
+        }
+
+        return $this->builder->where('object_id', $object->id);
+    }
+
+    public function object_id($value)
+    {
+        return $this->objectId($value);
+    }
 }
