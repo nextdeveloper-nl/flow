@@ -248,7 +248,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
 
     public function objectId($value)
     {
-        $objectType = request('object_type');
+        $objectType = request('object_type') ?? request('objectType');
 
         if (!$objectType) {
             return $this->builder;
