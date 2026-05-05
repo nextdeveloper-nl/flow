@@ -49,7 +49,7 @@ class ItemsPerspectiveTransformer extends AbstractItemsPerspectiveTransformer
 
     private function resolveObjectUuid(string $objectType, int $objectId): ?string
     {
-        $parts      = explode('\\', ltrim($objectType, '\\'));
+        $parts      = array_values(array_filter(explode('\\', $objectType)));
         $className  = array_pop($parts);
         $modelClass = '\\' . implode('\\', $parts) . '\\Database\\Models\\' . $className;
 

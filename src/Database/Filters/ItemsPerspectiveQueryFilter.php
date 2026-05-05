@@ -254,7 +254,7 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
             return $this->builder;
         }
 
-        $parts      = explode('\\', ltrim($objectType, '\\'));
+        $parts      = array_values(array_filter(explode('\\', $objectType)));
         $className  = array_pop($parts);
         $modelClass = '\\' . implode('\\', $parts) . '\\Database\\Models\\' . $className;
 

@@ -220,7 +220,7 @@ class ItemsService extends AbstractItemsService
      */
     private static function resolveObjectId(string $objectType, string $uuid): int
     {
-        $parts      = explode('\\', ltrim($objectType, '\\'));
+        $parts      = array_values(array_filter(explode('\\', $objectType)));
         $className  = array_pop($parts);
         $modelClass = '\\' . implode('\\', $parts) . '\\Database\\Models\\' . $className;
 
