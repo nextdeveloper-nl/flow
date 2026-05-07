@@ -148,27 +148,6 @@ Route::prefix('stage-history')->group(
     }
 );
 
-Route::prefix('automations')->group(
-    function () {
-        Route::get('/', 'Automations\AutomationsController@index');
-        Route::get('/actions', 'Automations\AutomationsController@getActions');
-
-        Route::get('{flow_automations}/tags ', 'Automations\AutomationsController@tags');
-        Route::post('{flow_automations}/tags ', 'Automations\AutomationsController@saveTags');
-        Route::get('{flow_automations}/addresses ', 'Automations\AutomationsController@addresses');
-        Route::post('{flow_automations}/addresses ', 'Automations\AutomationsController@saveAddresses');
-
-        Route::get('/{flow_automations}/{subObjects}', 'Automations\AutomationsController@relatedObjects');
-        Route::get('/{flow_automations}', 'Automations\AutomationsController@show');
-
-        Route::post('/', 'Automations\AutomationsController@store');
-        Route::post('/{flow_automations}/do/{action}', 'Automations\AutomationsController@doAction');
-
-        Route::patch('/{flow_automations}', 'Automations\AutomationsController@update');
-        Route::delete('/{flow_automations}', 'Automations\AutomationsController@destroy');
-    }
-);
-
 Route::prefix('item-watchers')->group(
     function () {
         Route::get('/', 'ItemWatchers\ItemWatchersController@index');
@@ -187,6 +166,27 @@ Route::prefix('item-watchers')->group(
 
         Route::patch('/{flow_item_watchers}', 'ItemWatchers\ItemWatchersController@update');
         Route::delete('/{flow_item_watchers}', 'ItemWatchers\ItemWatchersController@destroy');
+    }
+);
+
+Route::prefix('automations')->group(
+    function () {
+        Route::get('/', 'Automations\AutomationsController@index');
+        Route::get('/actions', 'Automations\AutomationsController@getActions');
+
+        Route::get('{flow_automations}/tags ', 'Automations\AutomationsController@tags');
+        Route::post('{flow_automations}/tags ', 'Automations\AutomationsController@saveTags');
+        Route::get('{flow_automations}/addresses ', 'Automations\AutomationsController@addresses');
+        Route::post('{flow_automations}/addresses ', 'Automations\AutomationsController@saveAddresses');
+
+        Route::get('/{flow_automations}/{subObjects}', 'Automations\AutomationsController@relatedObjects');
+        Route::get('/{flow_automations}', 'Automations\AutomationsController@show');
+
+        Route::post('/', 'Automations\AutomationsController@store');
+        Route::post('/{flow_automations}/do/{action}', 'Automations\AutomationsController@doAction');
+
+        Route::patch('/{flow_automations}', 'Automations\AutomationsController@update');
+        Route::delete('/{flow_automations}', 'Automations\AutomationsController@destroy');
     }
 );
 
@@ -260,7 +260,19 @@ Route::prefix('items-perspective')->group(
 
 
 
-});
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

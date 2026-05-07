@@ -244,4 +244,5 @@ class PipelinesPerspectiveQueryFilter extends AbstractQueryFilter
 
 
 
+
 }

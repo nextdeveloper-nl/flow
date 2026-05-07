@@ -30,6 +30,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * @property \Carbon\Carbon $deleted_at
+ * @property integer $common_pusher_id
  */
 class Automations extends Model
 {
@@ -54,6 +55,7 @@ class Automations extends Model
             'payload_template',
             'is_active',
             'iam_account_id',
+            'common_pusher_id',
     ];
 
     /**
@@ -86,6 +88,7 @@ class Automations extends Model
     'created_at' => 'datetime',
     'updated_at' => 'datetime',
     'deleted_at' => 'datetime',
+    'common_pusher_id' => 'integer',
     ];
 
     /**
@@ -156,7 +159,13 @@ class Automations extends Model
         return $this->belongsTo(\NextDeveloper\Flow\Database\Models\Stages::class);
     }
     
+    public function pushers() : \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(\NextDeveloper\Commons\Database\Models\Pushers::class);
+    }
+    
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 
 
 

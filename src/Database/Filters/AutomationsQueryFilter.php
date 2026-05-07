@@ -4,7 +4,7 @@ namespace NextDeveloper\Flow\Database\Filters;
 
 use Illuminate\Database\Eloquent\Builder;
 use NextDeveloper\Commons\Database\Filters\AbstractQueryFilter;
-            
+                
 
 /**
  * This class automatically puts where clause on database so that use can filter
@@ -152,7 +152,23 @@ class AutomationsQueryFilter extends AbstractQueryFilter
     }
 
     
+    public function commonPusherId($value)
+    {
+            $commonPusher = \NextDeveloper\Commons\Database\Models\Pushers::where('uuid', $value)->first();
+
+        if($commonPusher) {
+            return $this->builder->where('common_pusher_id', '=', $commonPusher->id);
+        }
+    }
+
+        //  This is an alias function of commonPusher
+    public function common_pusher_id($value)
+    {
+        return $this->commonPusher($value);
+    }
+    
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 
 
 

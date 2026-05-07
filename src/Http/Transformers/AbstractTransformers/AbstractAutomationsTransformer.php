@@ -57,6 +57,7 @@ class AbstractAutomationsTransformer extends AbstractTransformer
                                                 $flowPipelineId = \NextDeveloper\Flow\Database\Models\Pipelines::where('id', $model->flow_pipeline_id)->first();
                                                             $flowStageId = \NextDeveloper\Flow\Database\Models\Stages::where('id', $model->flow_stage_id)->first();
                                                             $iamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->iam_account_id)->first();
+                                                            $commonPusherId = \NextDeveloper\Commons\Database\Models\Pushers::where('id', $model->common_pusher_id)->first();
                         
         return $this->buildPayload(
             [
@@ -71,6 +72,7 @@ class AbstractAutomationsTransformer extends AbstractTransformer
             'created_at'  =>  $model->created_at,
             'updated_at'  =>  $model->updated_at,
             'deleted_at'  =>  $model->deleted_at,
+            'common_pusher_id'  =>  $commonPusherId ? $commonPusherId->uuid : null,
             ]
         );
     }
@@ -159,6 +161,7 @@ class AbstractAutomationsTransformer extends AbstractTransformer
         return $this->collection($addresses, new AddressesTransformer());
     }
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 
 
 
