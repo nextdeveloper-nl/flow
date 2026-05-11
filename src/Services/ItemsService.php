@@ -2,15 +2,17 @@
 
 namespace NextDeveloper\Flow\Services;
 
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use NextDeveloper\Flow\Services\AbstractServices\AbstractItemsService;
 use NextDeveloper\Flow\Database\Models\Items;
 use NextDeveloper\Flow\Database\Models\StageHistories;
+use NextDeveloper\Flow\Database\Models\Stages;
 use NextDeveloper\Flow\Database\Models\Automations;
 use NextDeveloper\Flow\Database\Models\StageRequiredColumns;
 use NextDeveloper\Flow\Database\Models\ItemValues;
 use NextDeveloper\Flow\Database\Models\ItemWatchers;
-use NextDeveloper\Commons\Helpers\DatabaseHelper;
 use NextDeveloper\IAM\Helpers\UserHelper;
 use NextDeveloper\Events\Services\Events;
 use NextDeveloper\Commons\Exceptions\NotAllowedException;
@@ -72,10 +74,17 @@ class ItemsService extends AbstractItemsService
         $newStageId  = null;
 
         if (array_key_exists('flow_stage_id', $data)) {
-            $newStageId = DatabaseHelper::uuidToId(
-                '\NextDeveloper\Flow\Database\Models\Stages',
-                $data['flow_stage_id']
-            );
+            $stage = Stages::withoutGlobalScopes()
+                ->where('uuid', $data['flow_stage_id'])
+                ->first();
+
+            if (!$stage) {
+                throw new NotAllowedException('Stage not found: ' . $data['flow_stage_id']);
+            }
+
+            $newStageId = $stage->id;
+            // Replace UUID with the resolved integer so parent::update() skips re-conversion
+            $data['flow_stage_id'] = $newStageId;
 
             if ($newStageId !== $oldStageId) {
                 self::validateStageEntry($item, $newStageId);
@@ -151,14 +160,16 @@ class ItemsService extends AbstractItemsService
      */
     private static function validateStageEntry(Items $item, int $newStageId): void
     {
-        $requiredColumnIds = StageRequiredColumns::where('flow_stage_id', $newStageId)
+        $requiredColumnIds = StageRequiredColumns::withoutGlobalScopes()
+            ->where('flow_stage_id', $newStageId)
             ->pluck('flow_column_id');
 
         if ($requiredColumnIds->isEmpty()) {
             return;
         }
 
-        $filledColumnIds = ItemValues::where('flow_item_id', $item->id)
+        $filledColumnIds = ItemValues::withoutGlobalScopes()
+            ->where('flow_item_id', $item->id)
             ->whereIn('flow_column_id', $requiredColumnIds)
             ->whereNotNull('value')
             ->pluck('flow_column_id');
@@ -178,7 +189,8 @@ class ItemsService extends AbstractItemsService
      */
     private static function fireAutomations(Items $item, ?int $fromStageId, ?int $toStageId, string $trigger): void
     {
-        $query = Automations::where('flow_pipeline_id', $item->flow_pipeline_id)
+        $query = Automations::withoutGlobalScopes()
+            ->where('flow_pipeline_id', $item->flow_pipeline_id)
             ->where('is_active', true)
             ->where('trigger', $trigger);
 
@@ -195,6 +207,14 @@ class ItemsService extends AbstractItemsService
         }
 
         foreach ($query->get() as $automation) {
+            if ($automation->common_pusher_id) {
+                self::triggerPusher($automation, $item);
+            }
+
+            if (!$automation->event_name) {
+                continue;
+            }
+
             Events::fire($automation->event_name, $item);
         }
     }
@@ -204,13 +224,61 @@ class ItemsService extends AbstractItemsService
      */
     private static function notifyWatchers(Items $item): void
     {
-        $hasWatchers = ItemWatchers::where('flow_item_id', $item->id)->exists();
+        $hasWatchers = ItemWatchers::withoutGlobalScopes()->where('flow_item_id', $item->id)->exists();
 
         if (!$hasWatchers) {
             return;
         }
 
         Events::fire('item_stage_changed:NextDeveloper\Flow\Items', $item);
+    }
+
+    private static function triggerPusher(Automations $automation, Items $item): void
+    {
+        $pusher = \NextDeveloper\Commons\Database\Models\Pushers::withoutGlobalScopes()
+            ->where('id', $automation->common_pusher_id)
+            ->first();
+
+        if (!$pusher || !$pusher->url) {
+            return;
+        }
+
+        $method  = strtolower($pusher->method ?? 'post');
+
+        $object = self::resolveObject($item->object_type, $item->object_id);
+
+        $payload = array_merge($automation->payload_template ?? [], [
+            'flow_item_id'   => $item->uuid,
+            'object_type'    => $item->object_type,
+            'object_id'      => $item->object_id,
+            'flow_stage_id'  => $item->flow_stage_id,
+            'object'         => $object ? $object->toArray() : null,
+        ]);
+
+        $client = Http::acceptJson();
+
+        if ($pusher->require_auth && $pusher->token && $pusher->auth_header) {
+            $client = $client->withHeaders([$pusher->auth_header => $pusher->token]);
+        }
+
+        try {
+            $client->$method($pusher->url, $payload);
+        } catch (\Throwable $e) {
+            Log::warning('[Flow] Pusher trigger failed for automation ' . $automation->id . ': ' . $e->getMessage());
+        }
+    }
+
+    private static function resolveObject(string $objectType, int $id): ?object
+    {
+        $parts      = array_values(array_filter(explode('\\', $objectType)));
+        $className  = array_pop($parts);
+        $modelClass = '\\' . implode('\\', $parts) . '\\Database\\Models\\' . $className;
+
+        if (!class_exists($modelClass)) {
+            return null;
+        }
+
+        return $modelClass::withoutGlobalScopes()->where('id', $id)->first();
     }
 
     /**
