@@ -108,11 +108,24 @@ class ItemsService extends AbstractItemsService
             ]);
 
             self::fireAutomations($model, $oldStageId, $newStageId, 'stage_exited');
+            self::fireAutomations($model, $oldStageId, $newStageId, 'stage_left');
             self::fireAutomations($model, $oldStageId, $newStageId, 'stage_entered');
+            self::fireAutomations($model, $oldStageId, $newStageId, 'item_moved');
             self::notifyWatchers($model);
         }
 
         return $model;
+    }
+
+    public static function delete($id)
+    {
+        $item = Items::withoutGlobalScopes()->where('uuid', $id)->first();
+
+        if ($item) {
+            self::fireAutomations($item, $item->flow_stage_id, null, 'item_deleted');
+        }
+
+        return parent::delete($id);
     }
 
     /**
@@ -199,12 +212,13 @@ class ItemsService extends AbstractItemsService
                 $q->whereNull('flow_stage_id')
                   ->orWhere('flow_stage_id', $toStageId);
             });
-        } elseif ($trigger === 'stage_exited') {
+        } elseif ($trigger === 'stage_exited' || $trigger === 'stage_left') {
             $query->where(function ($q) use ($fromStageId) {
                 $q->whereNull('flow_stage_id')
                   ->orWhere('flow_stage_id', $fromStageId);
             });
         }
+        // item_moved, item_created, item_deleted have no stage filter
 
         foreach ($query->get() as $automation) {
             if ($automation->common_pusher_id) {
@@ -231,6 +245,11 @@ class ItemsService extends AbstractItemsService
         }
 
         Events::fire('item_stage_changed:NextDeveloper\Flow\Items', $item);
+    }
+
+    public static function triggerPusherForAutomation(Automations $automation, Items $item): void
+    {
+        self::triggerPusher($automation, $item);
     }
 
     private static function triggerPusher(Automations $automation, Items $item): void

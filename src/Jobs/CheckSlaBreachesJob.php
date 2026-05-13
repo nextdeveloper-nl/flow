@@ -11,6 +11,7 @@ use NextDeveloper\Flow\Database\Models\Items;
 use NextDeveloper\Flow\Database\Models\Stages;
 use NextDeveloper\Flow\Database\Models\Automations;
 use NextDeveloper\Events\Services\Events;
+use NextDeveloper\Flow\Services\ItemsService;
 
 /**
  * Detects items that have exceeded their stage SLA and fires sla_breached automations.
@@ -79,6 +80,14 @@ class CheckSlaBreachesJob implements ShouldQueue
                 ->get();
 
             foreach ($automations as $automation) {
+                if ($automation->common_pusher_id) {
+                    ItemsService::triggerPusherForAutomation($automation, $item);
+                }
+
+                if (!$automation->event_name) {
+                    continue;
+                }
+
                 Events::fire($automation->event_name, $item);
             }
         }
