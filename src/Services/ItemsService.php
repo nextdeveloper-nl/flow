@@ -266,13 +266,13 @@ class ItemsService extends AbstractItemsService
 
         $object = self::resolveObject($item->object_type, $item->object_id);
 
-        $payload = array_merge($automation->payload_template ?? [], [
-            'flow_item_id'   => $item->uuid,
-            'object_type'    => $item->object_type,
-            'object_id'      => $item->object_id,
-            'flow_stage_id'  => $item->flow_stage_id,
-            'object'         => $object ? self::transformObject($object) : null,
-        ]);
+        // Spread the fully-transformed item (UUIDs for all FK fields) then attach the
+        // resolved related object, also run through its transformer.
+        $payload = array_merge(
+            $automation->payload_template ?? [],
+            self::transformObject($item),
+            ['object' => $object ? self::transformObject($object) : null]
+        );
 
         $client = Http::acceptJson();
 
