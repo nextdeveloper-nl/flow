@@ -271,7 +271,7 @@ class ItemsService extends AbstractItemsService
             'object_type'    => $item->object_type,
             'object_id'      => $item->object_id,
             'flow_stage_id'  => $item->flow_stage_id,
-            'object'         => $object ? $object->toArray() : null,
+            'object'         => $object ? self::transformObject($object) : null,
         ]);
 
         $client = Http::acceptJson();
@@ -285,6 +285,26 @@ class ItemsService extends AbstractItemsService
         } catch (\Throwable $e) {
             Log::warning('[Flow] Pusher trigger failed for automation ' . $automation->id . ': ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Transforms a model through its corresponding HTTP transformer if one exists.
+     * Falls back to toArray() when no transformer class can be found.
+     */
+    private static function transformObject(object $object): array
+    {
+        $modelClass       = get_class($object);
+        $transformerClass = str_replace('\\Database\\Models\\', '\\Http\\Transformers\\', $modelClass) . 'Transformer';
+
+        if (class_exists($transformerClass)) {
+            try {
+                return (new $transformerClass())->transform($object);
+            } catch (\Throwable $e) {
+                Log::warning('[Flow] Transformer failed for ' . $modelClass . ': ' . $e->getMessage());
+            }
+        }
+
+        return $object->toArray();
     }
 
     private static function resolveObject(string $objectType, int $id): ?object
