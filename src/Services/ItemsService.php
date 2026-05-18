@@ -201,7 +201,7 @@ class ItemsService extends AbstractItemsService
      */
     private static function fireAutomations(Items $item, ?int $fromStageId, ?int $toStageId, string $trigger): void
     {
-        $query = Automations::withoutGlobalScopes()
+        $query = Automations::withoutGlobalScope(\NextDeveloper\IAM\Database\Scopes\AuthorizationScope::class)
             ->where('flow_pipeline_id', $item->flow_pipeline_id)
             ->where('is_active', true)
             ->where('trigger', $trigger);
