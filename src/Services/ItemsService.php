@@ -4,9 +4,8 @@ namespace NextDeveloper\Flow\Services;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
-use NextDeveloper\Commons\Database\Models\Pushers;
 use NextDeveloper\Commons\Exceptions\NotAllowedException;
-use NextDeveloper\Commons\Services\PusherLogsService;
+use NextDeveloper\Commons\Services\PushersService;
 use NextDeveloper\Events\Services\Events;
 use NextDeveloper\Flow\Database\Models\Automations;
 use NextDeveloper\Flow\Database\Models\ItemValues;
@@ -255,33 +254,18 @@ class ItemsService extends AbstractItemsService
 
     private static function triggerPusher(Automations $automation, Items $item): void
     {
-        $pusher = Pushers::withoutGlobalScopes()
-            ->where('id', $automation->common_pusher_id)
-            ->first();
-
-        if (!$pusher || !$pusher->url) {
-            return;
-        }
-
         $object = self::resolveObject($item->object_type, $item->object_id);
 
-        // Build the payload: automation template fields, transformed item (UUIDs for all
-        // FK fields), and the resolved related object also run through its transformer.
         $payload = array_merge(
             $automation->payload_template ?? [],
             self::transformObject($item),
             ['object' => $object ? self::transformObject($object) : null]
         );
 
-        // Create a PusherLog with the pre-built payload. The PushObjectJob picks it up
-        // and delivers through PusherFactory using the pusher's configured provider.
         try {
-            PusherLogsService::create([
-                'common_pusher_id' => $pusher->uuid,
-                'body'             => $payload,
-            ]);
+            PushersService::trigger($automation->common_pusher_id, $payload);
         } catch (\Throwable $e) {
-            Log::warning('[Flow] Could not create PusherLog for automation ' . $automation->id . ': ' . $e->getMessage());
+            Log::warning('[Flow] Pusher trigger failed for automation ' . $automation->id . ': ' . $e->getMessage());
         }
     }
 
