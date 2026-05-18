@@ -108,7 +108,6 @@ class ItemsService extends AbstractItemsService
             ]);
 
             self::fireAutomations($model, $oldStageId, $newStageId, 'stage_exited');
-            self::fireAutomations($model, $oldStageId, $newStageId, 'stage_left');
             self::fireAutomations($model, $oldStageId, $newStageId, 'stage_entered');
             self::fireAutomations($model, $oldStageId, $newStageId, 'item_moved');
             self::notifyWatchers($model);
