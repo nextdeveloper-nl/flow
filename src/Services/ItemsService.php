@@ -127,6 +127,25 @@ class ItemsService extends AbstractItemsService
         return parent::delete($id);
     }
 
+    public static function restore(Items $item): Items
+    {
+        $item->restore();
+        $item = $item->fresh();
+
+        StageHistories::create([
+            'flow_item_id'         => $item->id,
+            'flow_pipeline_id'     => $item->flow_pipeline_id,
+            'from_stage_id'        => null,
+            'to_stage_id'          => $item->flow_stage_id,
+            'moved_by_iam_user_id' => $item->iam_user_id,
+            'moved_at'             => now(),
+        ]);
+
+        self::fireAutomations($item, null, $item->flow_stage_id, 'item_created');
+
+        return $item;
+    }
+
     /**
      * Marks a single checklist key as complete for the given item.
      */
