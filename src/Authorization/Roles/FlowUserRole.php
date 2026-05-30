@@ -36,16 +36,11 @@ class FlowUserRole extends AbstractRole implements IAuthorizationRole
      */
     public function apply(Builder $builder, Model $model)
     {
-        if (in_array($model->getTable(), self::PERSPECTIVES)) {
-            return;
-        }
-
         $hasUserId    = DatabaseHelper::isColumnExists($model->getTable(), 'iam_user_id');
         $hasAccountId = DatabaseHelper::isColumnExists($model->getTable(), 'iam_account_id');
 
         if ($hasUserId) {
             $builder->where('iam_user_id', UserHelper::me()->id);
-            return;
         }
 
         if ($hasAccountId) {
