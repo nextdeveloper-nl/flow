@@ -32,6 +32,18 @@ class FlowStagePusher extends AbstractPusher
 
     public function send(PusherLogs $log, Pushers $pusher): PusherResult
     {
+        if (!$this->isWithinLimit($pusher)) {
+            $limit = $pusher->provider_metadata['hourly_limit'] ?? 10;
+
+            Log::warning('[FlowStagePusher] Hourly push limit reached — skipping.', [
+                'pusher_log_id' => $log->id,
+                'pusher_id'     => $pusher->id,
+                'hourly_limit'  => $limit,
+            ]);
+
+            return PusherResult::fail(429, 'Hourly push limit of ' . $limit . ' reached. Skipping.');
+        }
+
         $body = $this->decodeBody($log);
 
         // Accept flow_item_id explicitly or fall back to the item's own uuid
@@ -93,5 +105,18 @@ class FlowStagePusher extends AbstractPusher
 
             return PusherResult::fail(500, 'Failed to update stage: ' . $e->getMessage());
         }
+    }
+
+    private function isWithinLimit(Pushers $pusher): bool
+    {
+        $limit = (int) ($pusher->provider_metadata['hourly_limit'] ?? 10);
+
+        $recentCount = PusherLogs::withoutGlobalScopes()
+            ->where('common_pusher_id', $pusher->id)
+            ->where('status', 'completed')
+            ->where('created_at', '>=', now()->subHour())
+            ->count();
+
+        return $recentCount < $limit;
     }
 }
