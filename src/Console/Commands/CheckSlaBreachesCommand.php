@@ -3,6 +3,7 @@
 namespace NextDeveloper\Flow\Console\Commands;
 
 use Illuminate\Console\Command;
+use NextDeveloper\IAM\Helpers\UserHelper;
 use NextDeveloper\Flow\Database\Models\Automations;
 use NextDeveloper\Flow\Database\Models\Items;
 use NextDeveloper\Flow\Database\Models\Stages;
@@ -28,6 +29,8 @@ class CheckSlaBreachesCommand extends Command
 
     public function handle(): int
     {
+        UserHelper::setAdminAsCurrentUser();
+
         $dryRun = $this->option('dry-run');
 
         if ($dryRun || $this->option('sync')) {
