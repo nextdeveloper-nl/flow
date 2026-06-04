@@ -7,9 +7,8 @@ use NextDeveloper\Commons\Database\Models\PusherLogs;
 use NextDeveloper\Commons\Database\Models\Pushers;
 use NextDeveloper\Commons\Pushers\AbstractPusher;
 use NextDeveloper\Commons\Pushers\PusherResult;
-use NextDeveloper\Flow\Database\Models\Items;
+use NextDeveloper\Commons\Exceptions\NotAllowedException;
 use NextDeveloper\Flow\Services\ItemsService;
-use NextDeveloper\IAM\Database\Scopes\AuthorizationScope;
 
 /**
  * Moves a Flow item to a target stage. This pusher is exclusively for
@@ -63,19 +62,6 @@ class FlowStagePusher extends AbstractPusher
             return PusherResult::fail(422, 'Missing flow_item_id or flow_stage_id in payload.');
         }
 
-        $item = Items::withoutGlobalScope(AuthorizationScope::class)
-            ->where('uuid', $itemUuid)
-            ->first();
-
-        if (!$item) {
-            Log::warning('[FlowStagePusher] Flow item not found.', [
-                'pusher_log_id' => $log->id,
-                'flow_item_id'  => $itemUuid,
-            ]);
-
-            return PusherResult::fail(404, 'Flow item not found: ' . $itemUuid);
-        }
-
         Log::info('[FlowStagePusher] Updating flow item stage.', [
             'pusher_log_id' => $log->id,
             'flow_item_id'  => $itemUuid,
@@ -94,6 +80,13 @@ class FlowStagePusher extends AbstractPusher
             ]);
 
             return PusherResult::ok(200, 'Stage updated for flow item: ' . $itemUuid);
+        } catch (NotAllowedException $e) {
+            Log::warning('[FlowStagePusher] Flow item not found or not accessible.', [
+                'pusher_log_id' => $log->id,
+                'flow_item_id'  => $itemUuid,
+            ]);
+
+            return PusherResult::fail(404, 'Flow item not found: ' . $itemUuid);
         } catch (\Throwable $e) {
             Log::error('[FlowStagePusher] Failed to update flow item stage.', [
                 'pusher_log_id' => $log->id,
