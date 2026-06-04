@@ -18,8 +18,10 @@ use NextDeveloper\IAM\Database\Scopes\AuthorizationScope;
  * Provider key: flow_stage
  *
  * Expected payload keys:
- *   flow_item_id  — UUID of the flow item to move
- *   flow_stage_id — UUID of the target stage (falls back to provider_metadata.flow_stage_id)
+ *   flow_item_id  — UUID of the flow item to move (or falls back to body 'id')
+ *
+ * Required provider_metadata keys:
+ *   flow_stage_id — UUID of the destination stage
  */
 class FlowStagePusher extends AbstractPusher
 {
@@ -34,10 +36,10 @@ class FlowStagePusher extends AbstractPusher
 
         // Accept flow_item_id explicitly or fall back to the item's own uuid
         // when the pusher is fired directly from a Flow item automation.
-        $itemUuid  = $body['flow_item_id'] ?? $body['uuid'] ?? null;
+        $itemUuid  = $body['flow_item_id'] ?? $body['id'] ?? null;
 
-        // Body takes precedence; provider_metadata is the configuration fallback.
-        $stageUuid = $body['flow_stage_id'] ?? ($pusher->provider_metadata['flow_stage_id'] ?? null);
+        // Destination stage is always configured on the pusher, never from the payload.
+        $stageUuid = $pusher->provider_metadata['flow_stage_id'] ?? null;
 
         if (empty($itemUuid) || empty($stageUuid)) {
             Log::warning('[FlowStagePusher] Missing flow_item_id or flow_stage_id — cannot update stage.', [
