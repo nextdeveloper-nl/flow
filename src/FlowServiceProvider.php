@@ -3,6 +3,8 @@
 namespace NextDeveloper\Flow;
 
 use NextDeveloper\Commons\AbstractServiceProvider;
+use NextDeveloper\Commons\Pushers\PusherFactory;
+use NextDeveloper\Flow\Pushers\Drivers\FlowStagePusher;
 
 /**
  * Class IAASServiceProvider
@@ -26,6 +28,8 @@ class FlowServiceProvider extends AbstractServiceProvider {
         ], 'config');
 
         $this->loadViewsFrom($this->dir.'/../resources/views', 'Flow');
+
+        PusherFactory::register('flow_stage', FlowStagePusher::class);
 
 //        $this->bootErrorHandler();
         $this->bootChannelRoutes();

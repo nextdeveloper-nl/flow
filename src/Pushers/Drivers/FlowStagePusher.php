@@ -1,0 +1,95 @@
+<?php
+
+namespace NextDeveloper\Flow\Pushers\Drivers;
+
+use Illuminate\Support\Facades\Log;
+use NextDeveloper\Commons\Database\Models\PusherLogs;
+use NextDeveloper\Commons\Database\Models\Pushers;
+use NextDeveloper\Commons\Pushers\AbstractPusher;
+use NextDeveloper\Commons\Pushers\PusherResult;
+use NextDeveloper\Flow\Database\Models\Items;
+use NextDeveloper\Flow\Services\ItemsService;
+use NextDeveloper\IAM\Database\Scopes\AuthorizationScope;
+
+/**
+ * Moves a Flow item to a target stage. This pusher is exclusively for
+ * Flow\Items — it does not interact with any other object in the project.
+ *
+ * Provider key: flow_stage
+ *
+ * Expected payload keys:
+ *   flow_item_id  — UUID of the flow item to move
+ *   flow_stage_id — UUID of the target stage (falls back to provider_metadata.flow_stage_id)
+ */
+class FlowStagePusher extends AbstractPusher
+{
+    public static function provider(): string
+    {
+        return 'flow_stage';
+    }
+
+    public function send(PusherLogs $log, Pushers $pusher): PusherResult
+    {
+        $body = $this->decodeBody($log);
+
+        // Accept flow_item_id explicitly or fall back to the item's own uuid
+        // when the pusher is fired directly from a Flow item automation.
+        $itemUuid  = $body['flow_item_id'] ?? $body['uuid'] ?? null;
+
+        // Body takes precedence; provider_metadata is the configuration fallback.
+        $stageUuid = $body['flow_stage_id'] ?? ($pusher->provider_metadata['flow_stage_id'] ?? null);
+
+        if (empty($itemUuid) || empty($stageUuid)) {
+            Log::warning('[FlowStagePusher] Missing flow_item_id or flow_stage_id — cannot update stage.', [
+                'pusher_log_id' => $log->id,
+                'flow_item_id'  => $itemUuid,
+                'flow_stage_id' => $stageUuid,
+            ]);
+
+            return PusherResult::fail(422, 'Missing flow_item_id or flow_stage_id in payload.');
+        }
+
+        $item = Items::withoutGlobalScope(AuthorizationScope::class)
+            ->where('uuid', $itemUuid)
+            ->first();
+
+        if (!$item) {
+            Log::warning('[FlowStagePusher] Flow item not found.', [
+                'pusher_log_id' => $log->id,
+                'flow_item_id'  => $itemUuid,
+            ]);
+
+            return PusherResult::fail(404, 'Flow item not found: ' . $itemUuid);
+        }
+
+        Log::info('[FlowStagePusher] Updating flow item stage.', [
+            'pusher_log_id' => $log->id,
+            'flow_item_id'  => $itemUuid,
+            'flow_stage_id' => $stageUuid,
+        ]);
+
+        try {
+            ItemsService::update($itemUuid, [
+                'flow_stage_id' => $stageUuid,
+            ]);
+
+            Log::info('[FlowStagePusher] Stage updated successfully.', [
+                'pusher_log_id' => $log->id,
+                'flow_item_id'  => $itemUuid,
+                'flow_stage_id' => $stageUuid,
+            ]);
+
+            return PusherResult::ok(200, 'Stage updated for flow item: ' . $itemUuid);
+        } catch (\Throwable $e) {
+            Log::error('[FlowStagePusher] Failed to update flow item stage.', [
+                'pusher_log_id' => $log->id,
+                'flow_item_id'  => $itemUuid,
+                'flow_stage_id' => $stageUuid,
+                'error'         => $e->getMessage(),
+                'trace'         => $e->getTraceAsString(),
+            ]);
+
+            return PusherResult::fail(500, 'Failed to update stage: ' . $e->getMessage());
+        }
+    }
+}
