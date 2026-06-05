@@ -34,6 +34,8 @@ class CheckSlaBreachesJob implements ShouldQueue
 
     public function handle(): void
     {
+        UserHelper::setAdminAsCurrentUser();
+
         // Load all non-won/non-lost stages that have an SLA configured.
         // Keyed by ID to avoid N+1 when checking items.
         $slaStages = Stages::withoutGlobalScopes()
