@@ -176,12 +176,8 @@ class Stages extends Model
         return $this->hasMany(\NextDeveloper\Flow\Database\Models\Automations::class);
     }
 
-    public function campaigns() : \Illuminate\Database\Eloquent\Relations\HasMany
-    {
-        return $this->hasMany(\NextDeveloper\CRM\Database\Models\Campaigns::class);
-    }
-
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 
 
 

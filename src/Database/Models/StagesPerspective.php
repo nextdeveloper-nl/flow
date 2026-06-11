@@ -7,7 +7,7 @@ use NextDeveloper\Commons\Database\Traits\HasStates;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Model;
 use NextDeveloper\Commons\Database\Traits\Filterable;
-use NextDeveloper\Flow\Database\Observers\ItemsPerspectiveObserver;
+use NextDeveloper\Flow\Database\Observers\StagesPerspectiveObserver;
 use NextDeveloper\Commons\Database\Traits\UuidId;
 use NextDeveloper\Commons\Database\Traits\HasObject;
 use NextDeveloper\Commons\Common\Cache\Traits\CleanCache;
@@ -15,39 +15,40 @@ use NextDeveloper\Commons\Database\Traits\Taggable;
 use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
 
 /**
- * ItemsPerspective model.
+ * StagesPerspective model.
  *
  * @package  NextDeveloper\Flow\Database\Models
  * @property integer $id
  * @property string $uuid
  * @property integer $flow_pipeline_id
- * @property integer $flow_stage_id
- * @property string $object_type
- * @property integer $object_id
+ * @property string $name
+ * @property string $color
  * @property integer $position
- * @property \Carbon\Carbon $last_stage_changed_at
- * @property $checklist_state
- * @property integer $iam_account_id
- * @property integer $iam_user_id
+ * @property integer $probability
+ * @property integer $sla_days
+ * @property boolean $is_won
+ * @property boolean $is_lost
+ * @property $checklist
+ * @property boolean $is_active
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * @property \Carbon\Carbon $deleted_at
- * @property string $stage_name
- * @property string $stage_color
- * @property integer $stage_sla_days
- * @property string $object_name
- * @property string $object_subtitle
- * @property $object_value
- * @property boolean $sla_breached
+ * @property string $pipeline_name
+ * @property string $pipeline_object_type
+ * @property integer $pipeline_iam_account_id
+ * @property integer $item_count
+ * @property integer $sla_breached_count
+ * @property $avg_days_in_stage
+ * @property integer $required_column_count
  */
-class ItemsPerspective extends Model
+class StagesPerspective extends Model
 {
     use Filterable, UuidId, CleanCache, Taggable, HasStates, RunAsAdministrator, HasObject;
     use SoftDeletes;
 
     public $timestamps = true;
 
-    protected $table = 'flow_items_perspective';
+    protected $table = 'flow_stages_perspective';
 
 
     /**
@@ -57,21 +58,22 @@ class ItemsPerspective extends Model
 
     protected $fillable = [
             'flow_pipeline_id',
-            'flow_stage_id',
-            'object_type',
-            'object_id',
+            'name',
+            'color',
             'position',
-            'last_stage_changed_at',
-            'checklist_state',
-            'iam_account_id',
-            'iam_user_id',
-            'stage_name',
-            'stage_color',
-            'stage_sla_days',
-            'object_name',
-            'object_subtitle',
-            'object_value',
-            'sla_breached',
+            'probability',
+            'sla_days',
+            'is_won',
+            'is_lost',
+            'checklist',
+            'is_active',
+            'pipeline_name',
+            'pipeline_object_type',
+            'pipeline_iam_account_id',
+            'item_count',
+            'sla_breached_count',
+            'avg_days_in_stage',
+            'required_column_count',
     ];
 
     /**
@@ -96,21 +98,24 @@ class ItemsPerspective extends Model
     protected $casts = [
     'id' => 'integer',
     'flow_pipeline_id' => 'integer',
-    'flow_stage_id' => 'integer',
-    'object_type' => 'string',
-    'object_id' => 'integer',
+    'name' => 'string',
+    'color' => 'string',
     'position' => 'integer',
-    'last_stage_changed_at' => 'datetime',
-    'checklist_state' => 'array',
+    'probability' => 'integer',
+    'sla_days' => 'integer',
+    'is_won' => 'boolean',
+    'is_lost' => 'boolean',
+    'checklist' => 'array',
+    'is_active' => 'boolean',
     'created_at' => 'datetime',
     'updated_at' => 'datetime',
     'deleted_at' => 'datetime',
-    'stage_name' => 'string',
-    'stage_color' => 'string',
-    'stage_sla_days' => 'integer',
-    'object_name' => 'string',
-    'object_subtitle' => 'string',
-    'sla_breached' => 'boolean',
+    'pipeline_name' => 'string',
+    'pipeline_object_type' => 'string',
+    'pipeline_iam_account_id' => 'integer',
+    'item_count' => 'integer',
+    'sla_breached_count' => 'integer',
+    'required_column_count' => 'integer',
     ];
 
     /**
@@ -119,7 +124,6 @@ class ItemsPerspective extends Model
      @var array
      */
     protected $dates = [
-    'last_stage_changed_at',
     'created_at',
     'updated_at',
     'deleted_at',
@@ -145,7 +149,7 @@ class ItemsPerspective extends Model
         parent::boot();
 
         //  We create and add Observer even if we wont use it.
-        parent::observe(ItemsPerspectiveObserver::class);
+        parent::observe(StagesPerspectiveObserver::class);
 
         self::registerScopes();
     }
@@ -153,7 +157,7 @@ class ItemsPerspective extends Model
     public static function registerScopes()
     {
         $globalScopes = config('flow.scopes.global');
-        $modelScopes = config('flow.scopes.flow_items_perspective');
+        $modelScopes = config('flow.scopes.flow_stages_perspective');
 
         if(!$modelScopes) { $modelScopes = [];
         }
@@ -173,13 +177,4 @@ class ItemsPerspective extends Model
     }
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
-
-
-
-
-
-
-
-
-
 }

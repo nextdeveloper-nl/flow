@@ -7,7 +7,7 @@ use NextDeveloper\Commons\Database\Traits\HasStates;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Database\Eloquent\Model;
 use NextDeveloper\Commons\Database\Traits\Filterable;
-use NextDeveloper\Flow\Database\Observers\ItemsPerspectiveObserver;
+use NextDeveloper\Flow\Database\Observers\ItemValuesPerspectiveObserver;
 use NextDeveloper\Commons\Database\Traits\UuidId;
 use NextDeveloper\Commons\Database\Traits\HasObject;
 use NextDeveloper\Commons\Common\Cache\Traits\CleanCache;
@@ -15,7 +15,7 @@ use NextDeveloper\Commons\Database\Traits\Taggable;
 use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
 
 /**
- * ItemsPerspective model.
+ * ItemValuesPerspective model.
  *
  * @package  NextDeveloper\Flow\Database\Models
  * @property integer $id
@@ -34,20 +34,19 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property \Carbon\Carbon $deleted_at
  * @property string $stage_name
  * @property string $stage_color
- * @property integer $stage_sla_days
- * @property string $object_name
- * @property string $object_subtitle
- * @property $object_value
- * @property boolean $sla_breached
+ * @property string $pipeline_name
+ * @property string $pipeline_object_type
+ * @property $field_values
+ * @property $field_types
  */
-class ItemsPerspective extends Model
+class ItemValuesPerspective extends Model
 {
     use Filterable, UuidId, CleanCache, Taggable, HasStates, RunAsAdministrator, HasObject;
     use SoftDeletes;
 
     public $timestamps = true;
 
-    protected $table = 'flow_items_perspective';
+    protected $table = 'flow_item_values_perspective';
 
 
     /**
@@ -67,11 +66,10 @@ class ItemsPerspective extends Model
             'iam_user_id',
             'stage_name',
             'stage_color',
-            'stage_sla_days',
-            'object_name',
-            'object_subtitle',
-            'object_value',
-            'sla_breached',
+            'pipeline_name',
+            'pipeline_object_type',
+            'field_values',
+            'field_types',
     ];
 
     /**
@@ -107,10 +105,8 @@ class ItemsPerspective extends Model
     'deleted_at' => 'datetime',
     'stage_name' => 'string',
     'stage_color' => 'string',
-    'stage_sla_days' => 'integer',
-    'object_name' => 'string',
-    'object_subtitle' => 'string',
-    'sla_breached' => 'boolean',
+    'pipeline_name' => 'string',
+    'pipeline_object_type' => 'string',
     ];
 
     /**
@@ -145,7 +141,7 @@ class ItemsPerspective extends Model
         parent::boot();
 
         //  We create and add Observer even if we wont use it.
-        parent::observe(ItemsPerspectiveObserver::class);
+        parent::observe(ItemValuesPerspectiveObserver::class);
 
         self::registerScopes();
     }
@@ -153,7 +149,7 @@ class ItemsPerspective extends Model
     public static function registerScopes()
     {
         $globalScopes = config('flow.scopes.global');
-        $modelScopes = config('flow.scopes.flow_items_perspective');
+        $modelScopes = config('flow.scopes.flow_item_values_perspective');
 
         if(!$modelScopes) { $modelScopes = [];
         }
@@ -173,13 +169,4 @@ class ItemsPerspective extends Model
     }
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
-
-
-
-
-
-
-
-
-
 }

@@ -20,16 +20,16 @@ use NextDeveloper\Commons\Http\Transformers\MetaTransformer;
 use NextDeveloper\Commons\Http\Transformers\VotesTransformer;
 use NextDeveloper\Commons\Http\Transformers\AddressesTransformer;
 use NextDeveloper\Commons\Http\Transformers\PhoneNumbersTransformer;
-use NextDeveloper\Flow\Database\Models\StageRequiredColumns;
+use NextDeveloper\Flow\Database\Models\ItemValuesPerspective;
 use NextDeveloper\Commons\Http\Transformers\AbstractTransformer;
 use NextDeveloper\IAM\Database\Scopes\AuthorizationScope;
 
 /**
- * Class StageRequiredColumnsTransformer. This class is being used to manipulate the data we are serving to the customer
+ * Class ItemValuesPerspectiveTransformer. This class is being used to manipulate the data we are serving to the customer
  *
  * @package NextDeveloper\Flow\Http\Transformers
  */
-class AbstractStageRequiredColumnsTransformer extends AbstractTransformer
+class AbstractItemValuesPerspectiveTransformer extends AbstractTransformer
 {
 
     /**
@@ -48,25 +48,43 @@ class AbstractStageRequiredColumnsTransformer extends AbstractTransformer
     ];
 
     /**
-     * @param StageRequiredColumns $model
+     * @param ItemValuesPerspective $model
      *
      * @return array
      */
-    public function transform(StageRequiredColumns $model)
+    public function transform(ItemValuesPerspective $model)
     {
-                                                $flowStageId = \NextDeveloper\Flow\Database\Models\Stages::where('id', $model->flow_stage_id)->first();
-                                                            $flowColumnId = \NextDeveloper\Flow\Database\Models\Columns::where('id', $model->flow_column_id)->first();
+                                                $flowPipelineId = \NextDeveloper\Flow\Database\Models\Pipelines::where('id', $model->flow_pipeline_id)->first();
+                                                            $flowStageId = \NextDeveloper\Flow\Database\Models\Stages::where('id', $model->flow_stage_id)->first();
+                                                            $iamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->iam_account_id)->first();
+                                                            $iamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->iam_user_id)->first();
                         
         return $this->buildPayload(
             [
-            'id'  =>  $model->id,
+            'id'  =>  $model->uuid,
+            'flow_pipeline_id'  =>  $flowPipelineId ? $flowPipelineId->uuid : null,
             'flow_stage_id'  =>  $flowStageId ? $flowStageId->uuid : null,
-            'flow_column_id'  =>  $flowColumnId ? $flowColumnId->uuid : null,
+            'object_type'  =>  $model->object_type,
+            'object_id'  =>  $model->object_id,
+            'position'  =>  $model->position,
+            'last_stage_changed_at'  =>  $model->last_stage_changed_at,
+            'checklist_state'  =>  $model->checklist_state,
+            'iam_account_id'  =>  $iamAccountId ? $iamAccountId->uuid : null,
+            'iam_user_id'  =>  $iamUserId ? $iamUserId->uuid : null,
+            'created_at'  =>  $model->created_at,
+            'updated_at'  =>  $model->updated_at,
+            'deleted_at'  =>  $model->deleted_at,
+            'stage_name'  =>  $model->stage_name,
+            'stage_color'  =>  $model->stage_color,
+            'pipeline_name'  =>  $model->pipeline_name,
+            'pipeline_object_type'  =>  $model->pipeline_object_type,
+            'field_values'  =>  $model->field_values,
+            'field_types'  =>  $model->field_types,
             ]
         );
     }
 
-    public function includeStates(StageRequiredColumns $model)
+    public function includeStates(ItemValuesPerspective $model)
     {
         $states = States::where('object_type', get_class($model))
             ->where('object_id', $model->id)
@@ -75,7 +93,7 @@ class AbstractStageRequiredColumnsTransformer extends AbstractTransformer
         return $this->collection($states, new StatesTransformer());
     }
 
-    public function includeActions(StageRequiredColumns $model)
+    public function includeActions(ItemValuesPerspective $model)
     {
         $input = get_class($model);
         $input = str_replace('\\Database\\Models', '', $input);
@@ -87,7 +105,7 @@ class AbstractStageRequiredColumnsTransformer extends AbstractTransformer
         return $this->collection($actions, new AvailableActionsTransformer());
     }
 
-    public function includeMedia(StageRequiredColumns $model)
+    public function includeMedia(ItemValuesPerspective $model)
     {
         $media = Media::where('object_type', get_class($model))
             ->where('object_id', $model->id)
@@ -96,7 +114,7 @@ class AbstractStageRequiredColumnsTransformer extends AbstractTransformer
         return $this->collection($media, new MediaTransformer());
     }
 
-    public function includeSocialMedia(StageRequiredColumns $model)
+    public function includeSocialMedia(ItemValuesPerspective $model)
     {
         $socialMedia = SocialMedia::where('object_type', get_class($model))
             ->where('object_id', $model->id)
@@ -105,7 +123,7 @@ class AbstractStageRequiredColumnsTransformer extends AbstractTransformer
         return $this->collection($socialMedia, new SocialMediaTransformer());
     }
 
-    public function includeComments(StageRequiredColumns $model)
+    public function includeComments(ItemValuesPerspective $model)
     {
         $comments = Comments::where('object_type', get_class($model))
             ->where('object_id', $model->id)
@@ -114,7 +132,7 @@ class AbstractStageRequiredColumnsTransformer extends AbstractTransformer
         return $this->collection($comments, new CommentsTransformer());
     }
 
-    public function includeVotes(StageRequiredColumns $model)
+    public function includeVotes(ItemValuesPerspective $model)
     {
         $votes = Votes::where('object_type', get_class($model))
             ->where('object_id', $model->id)
@@ -123,7 +141,7 @@ class AbstractStageRequiredColumnsTransformer extends AbstractTransformer
         return $this->collection($votes, new VotesTransformer());
     }
 
-    public function includeMeta(StageRequiredColumns $model)
+    public function includeMeta(ItemValuesPerspective $model)
     {
         $meta = Meta::where('object_type', get_class($model))
             ->where('object_id', $model->id)
@@ -132,7 +150,7 @@ class AbstractStageRequiredColumnsTransformer extends AbstractTransformer
         return $this->collection($meta, new MetaTransformer());
     }
 
-    public function includePhoneNumbers(StageRequiredColumns $model)
+    public function includePhoneNumbers(ItemValuesPerspective $model)
     {
         $phoneNumbers = PhoneNumbers::where('object_type', get_class($model))
             ->where('object_id', $model->id)
@@ -141,7 +159,7 @@ class AbstractStageRequiredColumnsTransformer extends AbstractTransformer
         return $this->collection($phoneNumbers, new PhoneNumbersTransformer());
     }
 
-    public function includeAddresses(StageRequiredColumns $model)
+    public function includeAddresses(ItemValuesPerspective $model)
     {
         $addresses = Addresses::where('object_type', get_class($model))
             ->where('object_id', $model->id)
@@ -150,14 +168,4 @@ class AbstractStageRequiredColumnsTransformer extends AbstractTransformer
         return $this->collection($addresses, new AddressesTransformer());
     }
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
-
-
-
-
-
-
-
-
-
-
 }

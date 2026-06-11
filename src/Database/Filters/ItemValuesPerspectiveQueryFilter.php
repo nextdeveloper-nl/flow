@@ -10,7 +10,7 @@ use NextDeveloper\Commons\Database\Filters\AbstractQueryFilter;
  * This class automatically puts where clause on database so that use can filter
  * data returned from the query.
  */
-class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
+class ItemValuesPerspectiveQueryFilter extends AbstractQueryFilter
 {
 
     /**
@@ -51,26 +51,26 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
         return $this->stageColor($value);
     }
         
-    public function objectName($value)
+    public function pipelineName($value)
     {
-        return $this->builder->where('object_name', 'ilike', '%' . $value . '%');
+        return $this->builder->where('pipeline_name', 'ilike', '%' . $value . '%');
     }
 
-        //  This is an alias function of objectName
-    public function object_name($value)
+        //  This is an alias function of pipelineName
+    public function pipeline_name($value)
     {
-        return $this->objectName($value);
+        return $this->pipelineName($value);
     }
         
-    public function objectSubtitle($value)
+    public function pipelineObjectType($value)
     {
-        return $this->builder->where('object_subtitle', 'ilike', '%' . $value . '%');
+        return $this->builder->where('pipeline_object_type', 'ilike', '%' . $value . '%');
     }
 
-        //  This is an alias function of objectSubtitle
-    public function object_subtitle($value)
+        //  This is an alias function of pipelineObjectType
+    public function pipeline_object_type($value)
     {
-        return $this->objectSubtitle($value);
+        return $this->pipelineObjectType($value);
     }
     
     public function position($value)
@@ -86,25 +86,6 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
         return $this->builder->where('position', $operator, $value);
     }
 
-    
-    public function stageSlaDays($value)
-    {
-        $operator = substr($value, 0, 1);
-
-        if ($operator != '<' || $operator != '>') {
-            $operator = '=';
-        } else {
-            $value = substr($value, 1);
-        }
-
-        return $this->builder->where('stage_sla_days', $operator, $value);
-    }
-
-        //  This is an alias function of stageSlaDays
-    public function stage_sla_days($value)
-    {
-        return $this->stageSlaDays($value);
-    }
     
     public function lastStageChangedAtStart($date)
     {
@@ -245,39 +226,4 @@ class ItemsPerspectiveQueryFilter extends AbstractQueryFilter
 
     
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
-
-    public function objectId($value)
-    {
-        $objectType = request('object_type') ?? request('objectType');
-
-        if (!$objectType) {
-            return $this->builder;
-        }
-
-        $parts      = array_values(array_filter(explode('\\', $objectType)));
-        $className  = array_pop($parts);
-        $modelClass = '\\' . implode('\\', $parts) . '\\Database\\Models\\' . $className;
-
-        if (!class_exists($modelClass)) {
-            return $this->builder;
-        }
-
-        $object = $modelClass::withoutGlobalScopes()->where('uuid', $value)->first();
-
-        if (!$object) {
-            return $this->builder->whereRaw('1 = 0');
-        }
-
-        return $this->builder->where('object_id', $object->id);
-    }
-
-    public function object_id($value)
-    {
-        return $this->objectId($value);
-    }
-
-
-
-
-
 }

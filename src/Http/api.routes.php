@@ -253,7 +253,63 @@ Route::prefix('items-perspective')->group(
     }
 );
 
+Route::prefix('item-values-perspective')->group(
+    function () {
+        Route::get('/', 'ItemValuesPerspective\ItemValuesPerspectiveController@index');
+        Route::get('/actions', 'ItemValuesPerspective\ItemValuesPerspectiveController@getActions');
+
+        Route::get('{flow_item_values_perspective}/tags ', 'ItemValuesPerspective\ItemValuesPerspectiveController@tags');
+        Route::post('{flow_item_values_perspective}/tags ', 'ItemValuesPerspective\ItemValuesPerspectiveController@saveTags');
+        Route::get('{flow_item_values_perspective}/addresses ', 'ItemValuesPerspective\ItemValuesPerspectiveController@addresses');
+        Route::post('{flow_item_values_perspective}/addresses ', 'ItemValuesPerspective\ItemValuesPerspectiveController@saveAddresses');
+
+        Route::get('/{flow_item_values_perspective}/{subObjects}', 'ItemValuesPerspective\ItemValuesPerspectiveController@relatedObjects');
+        Route::get('/{flow_item_values_perspective}', 'ItemValuesPerspective\ItemValuesPerspectiveController@show');
+
+        Route::post('/', 'ItemValuesPerspective\ItemValuesPerspectiveController@store');
+        Route::post('/{flow_item_values_perspective}/do/{action}', 'ItemValuesPerspective\ItemValuesPerspectiveController@doAction');
+
+        Route::patch('/{flow_item_values_perspective}', 'ItemValuesPerspective\ItemValuesPerspectiveController@update');
+        Route::delete('/{flow_item_values_perspective}', 'ItemValuesPerspective\ItemValuesPerspectiveController@destroy');
+    }
+);
+
+Route::prefix('stages-perspective')->group(
+    function () {
+        Route::get('/', 'StagesPerspective\StagesPerspectiveController@index');
+        Route::get('/actions', 'StagesPerspective\StagesPerspectiveController@getActions');
+
+        Route::get('{flow_stages_perspective}/tags ', 'StagesPerspective\StagesPerspectiveController@tags');
+        Route::post('{flow_stages_perspective}/tags ', 'StagesPerspective\StagesPerspectiveController@saveTags');
+        Route::get('{flow_stages_perspective}/addresses ', 'StagesPerspective\StagesPerspectiveController@addresses');
+        Route::post('{flow_stages_perspective}/addresses ', 'StagesPerspective\StagesPerspectiveController@saveAddresses');
+
+        Route::get('/{flow_stages_perspective}/{subObjects}', 'StagesPerspective\StagesPerspectiveController@relatedObjects');
+        Route::get('/{flow_stages_perspective}', 'StagesPerspective\StagesPerspectiveController@show');
+
+        Route::post('/', 'StagesPerspective\StagesPerspectiveController@store');
+        Route::post('/{flow_stages_perspective}/do/{action}', 'StagesPerspective\StagesPerspectiveController@doAction');
+
+        Route::patch('/{flow_stages_perspective}', 'StagesPerspective\StagesPerspectiveController@update');
+        Route::delete('/{flow_stages_perspective}', 'StagesPerspective\StagesPerspectiveController@destroy');
+    }
+);
+
 // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 
-});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

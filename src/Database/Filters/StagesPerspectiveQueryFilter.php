@@ -4,13 +4,13 @@ namespace NextDeveloper\Flow\Database\Filters;
 
 use Illuminate\Database\Eloquent\Builder;
 use NextDeveloper\Commons\Database\Filters\AbstractQueryFilter;
-    
+        
 
 /**
  * This class automatically puts where clause on database so that use can filter
  * data returned from the query.
  */
-class StagesQueryFilter extends AbstractQueryFilter
+class StagesPerspectiveQueryFilter extends AbstractQueryFilter
 {
 
     /**
@@ -29,6 +29,28 @@ class StagesQueryFilter extends AbstractQueryFilter
         return $this->builder->where('color', 'ilike', '%' . $value . '%');
     }
 
+        
+    public function pipelineName($value)
+    {
+        return $this->builder->where('pipeline_name', 'ilike', '%' . $value . '%');
+    }
+
+        //  This is an alias function of pipelineName
+    public function pipeline_name($value)
+    {
+        return $this->pipelineName($value);
+    }
+        
+    public function pipelineObjectType($value)
+    {
+        return $this->builder->where('pipeline_object_type', 'ilike', '%' . $value . '%');
+    }
+
+        //  This is an alias function of pipelineObjectType
+    public function pipeline_object_type($value)
+    {
+        return $this->pipelineObjectType($value);
+    }
     
     public function position($value)
     {
@@ -75,6 +97,63 @@ class StagesQueryFilter extends AbstractQueryFilter
     public function sla_days($value)
     {
         return $this->slaDays($value);
+    }
+    
+    public function itemCount($value)
+    {
+        $operator = substr($value, 0, 1);
+
+        if ($operator != '<' || $operator != '>') {
+            $operator = '=';
+        } else {
+            $value = substr($value, 1);
+        }
+
+        return $this->builder->where('item_count', $operator, $value);
+    }
+
+        //  This is an alias function of itemCount
+    public function item_count($value)
+    {
+        return $this->itemCount($value);
+    }
+    
+    public function slaBreachedCount($value)
+    {
+        $operator = substr($value, 0, 1);
+
+        if ($operator != '<' || $operator != '>') {
+            $operator = '=';
+        } else {
+            $value = substr($value, 1);
+        }
+
+        return $this->builder->where('sla_breached_count', $operator, $value);
+    }
+
+        //  This is an alias function of slaBreachedCount
+    public function sla_breached_count($value)
+    {
+        return $this->slaBreachedCount($value);
+    }
+    
+    public function requiredColumnCount($value)
+    {
+        $operator = substr($value, 0, 1);
+
+        if ($operator != '<' || $operator != '>') {
+            $operator = '=';
+        } else {
+            $value = substr($value, 1);
+        }
+
+        return $this->builder->where('required_column_count', $operator, $value);
+    }
+
+        //  This is an alias function of requiredColumnCount
+    public function required_column_count($value)
+    {
+        return $this->requiredColumnCount($value);
     }
     
     public function isWon($value)
@@ -191,15 +270,20 @@ class StagesQueryFilter extends AbstractQueryFilter
         return $this->flowPipeline($value);
     }
     
+    public function pipelineIamAccountId($value)
+    {
+            $pipelineIamAccount = \NextDeveloper\\Database\Models\PipelineIamAccounts::where('uuid', $value)->first();
+
+        if($pipelineIamAccount) {
+            return $this->builder->where('pipeline_iam_account_id', '=', $pipelineIamAccount->id);
+        }
+    }
+
+        //  This is an alias function of pipelineIamAccount
+    public function pipeline_iam_account_id($value)
+    {
+        return $this->pipelineIamAccount($value);
+    }
+    
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
-
-
-
-
-
-
-
-
-
-
 }
