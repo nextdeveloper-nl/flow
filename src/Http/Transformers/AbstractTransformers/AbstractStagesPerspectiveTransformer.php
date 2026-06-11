@@ -55,7 +55,7 @@ class AbstractStagesPerspectiveTransformer extends AbstractTransformer
     public function transform(StagesPerspective $model)
     {
                                                 $flowPipelineId = \NextDeveloper\Flow\Database\Models\Pipelines::where('id', $model->flow_pipeline_id)->first();
-                                                            $pipelineIamAccountId = \NextDeveloper\\Database\Models\PipelineIamAccounts::where('id', $model->pipeline_iam_account_id)->first();
+                                                            $pipelineIamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->pipeline_iam_account_id)->first();
                         
         return $this->buildPayload(
             [
@@ -168,4 +168,5 @@ class AbstractStagesPerspectiveTransformer extends AbstractTransformer
         return $this->collection($addresses, new AddressesTransformer());
     }
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 }

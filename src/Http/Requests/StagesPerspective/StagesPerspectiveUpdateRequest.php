@@ -25,7 +25,7 @@ class StagesPerspectiveUpdateRequest extends AbstractFormRequest
         'is_active' => 'nullable|boolean',
         'pipeline_name' => 'nullable|string',
         'pipeline_object_type' => 'nullable|string',
-        'pipeline_iam_account_id' => 'nullable|exists:pipeline_iam_accounts,uuid|uuid',
+        'pipeline_iam_account_id' => 'nullable|exists:iam_accounts,uuid|uuid',
         'item_count' => 'nullable|integer',
         'sla_breached_count' => 'nullable|integer',
         'avg_days_in_stage' => 'nullable',

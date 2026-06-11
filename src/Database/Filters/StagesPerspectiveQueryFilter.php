@@ -272,7 +272,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     
     public function pipelineIamAccountId($value)
     {
-            $pipelineIamAccount = \NextDeveloper\\Database\Models\PipelineIamAccounts::where('uuid', $value)->first();
+            $pipelineIamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
 
         if($pipelineIamAccount) {
             return $this->builder->where('pipeline_iam_account_id', '=', $pipelineIamAccount->id);
@@ -286,4 +286,5 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     }
     
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
 }
