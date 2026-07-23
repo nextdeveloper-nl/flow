@@ -25,7 +25,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractItemWatchersService
 {
-    public static function get(ItemWatchersQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?ItemWatchersQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 
@@ -196,11 +196,11 @@ class AbstractItemWatchersService
                 $data['iam_user_id']
             );
         }
-                    
+
         if(!array_key_exists('iam_user_id', $data)) {
             $data['iam_user_id']    = UserHelper::me()->id;
         }
-            
+
         try {
             $model = ItemWatchers::create($data);
         } catch(\Exception $e) {
@@ -258,7 +258,7 @@ class AbstractItemWatchersService
                 $data['iam_user_id']
             );
         }
-    
+
         try {
             $isUpdated = $model->update($data);
             $model = $model->fresh();

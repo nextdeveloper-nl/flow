@@ -17,7 +17,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function fromStageName($value)
     {
         return $this->builder->where('from_stage_name', 'ilike', '%' . $value . '%');
@@ -28,7 +28,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->fromStageName($value);
     }
-        
+
     public function fromStageColor($value)
     {
         return $this->builder->where('from_stage_color', 'ilike', '%' . $value . '%');
@@ -39,7 +39,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->fromStageColor($value);
     }
-        
+
     public function toStageName($value)
     {
         return $this->builder->where('to_stage_name', 'ilike', '%' . $value . '%');
@@ -50,7 +50,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->toStageName($value);
     }
-        
+
     public function toStageColor($value)
     {
         return $this->builder->where('to_stage_color', 'ilike', '%' . $value . '%');
@@ -61,7 +61,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->toStageColor($value);
     }
-        
+
     public function movedByName($value)
     {
         return $this->builder->where('moved_by_name', 'ilike', '%' . $value . '%');
@@ -72,7 +72,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->movedByName($value);
     }
-    
+
     public function movedAtStart($date)
     {
         return $this->builder->where('moved_at', '>=', $date);
@@ -109,7 +109,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->flowItem($value);
     }
-    
+
     public function flowPipelineId($value)
     {
             $flowPipeline = \NextDeveloper\Flow\Database\Models\Pipelines::where('uuid', $value)->first();
@@ -124,7 +124,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->flowPipeline($value);
     }
-    
+
     public function fromStageId($value)
     {
             $fromStage = \NextDeveloper\Flow\Database\Models\Stages::where('uuid', $value)->first();
@@ -139,7 +139,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->fromStage($value);
     }
-    
+
     public function toStageId($value)
     {
             $toStage = \NextDeveloper\Flow\Database\Models\Stages::where('uuid', $value)->first();
@@ -154,7 +154,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->toStage($value);
     }
-    
+
     public function movedByIamUserId($value)
     {
             $movedByIamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
@@ -169,7 +169,7 @@ class StageHistoryPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->movedByIamUser($value);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 

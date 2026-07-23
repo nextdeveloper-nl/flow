@@ -17,7 +17,7 @@ class ItemValuesPerspectiveQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function objectType($value)
     {
         return $this->builder->where('object_type', 'ilike', '%' . $value . '%');
@@ -28,7 +28,7 @@ class ItemValuesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->objectType($value);
     }
-        
+
     public function stageName($value)
     {
         return $this->builder->where('stage_name', 'ilike', '%' . $value . '%');
@@ -39,7 +39,7 @@ class ItemValuesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->stageName($value);
     }
-        
+
     public function stageColor($value)
     {
         return $this->builder->where('stage_color', 'ilike', '%' . $value . '%');
@@ -50,7 +50,7 @@ class ItemValuesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->stageColor($value);
     }
-        
+
     public function pipelineName($value)
     {
         return $this->builder->where('pipeline_name', 'ilike', '%' . $value . '%');
@@ -61,7 +61,7 @@ class ItemValuesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->pipelineName($value);
     }
-        
+
     public function pipelineObjectType($value)
     {
         return $this->builder->where('pipeline_object_type', 'ilike', '%' . $value . '%');
@@ -72,7 +72,7 @@ class ItemValuesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->pipelineObjectType($value);
     }
-    
+
     public function position($value)
     {
         $operator = substr($value, 0, 1);
@@ -86,7 +86,7 @@ class ItemValuesPerspectiveQueryFilter extends AbstractQueryFilter
         return $this->builder->where('position', $operator, $value);
     }
 
-    
+
     public function lastStageChangedAtStart($date)
     {
         return $this->builder->where('last_stage_changed_at', '>=', $date);
@@ -189,7 +189,7 @@ class ItemValuesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->flowPipeline($value);
     }
-    
+
     public function flowStageId($value)
     {
             $flowStage = \NextDeveloper\Flow\Database\Models\Stages::where('uuid', $value)->first();
@@ -204,7 +204,7 @@ class ItemValuesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->flowStage($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -214,7 +214,7 @@ class ItemValuesPerspectiveQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function iamUserId($value)
     {
             $iamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
@@ -224,7 +224,7 @@ class ItemValuesPerspectiveQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 }

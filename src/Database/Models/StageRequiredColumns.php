@@ -125,12 +125,12 @@ class StageRequiredColumns extends Model
     {
         return $this->belongsTo(\NextDeveloper\Flow\Database\Models\Stages::class);
     }
-    
+
     public function columns() : \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\NextDeveloper\Flow\Database\Models\Columns::class);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 

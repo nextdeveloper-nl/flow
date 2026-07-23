@@ -58,7 +58,7 @@ class AbstractAutomationsTransformer extends AbstractTransformer
                                                             $flowStageId = \NextDeveloper\Flow\Database\Models\Stages::where('id', $model->flow_stage_id)->first();
                                                             $iamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->iam_account_id)->first();
                                                             $commonPusherId = \NextDeveloper\Commons\Database\Models\Pushers::where('id', $model->common_pusher_id)->first();
-                        
+
         return $this->buildPayload(
             [
             'id'  =>  $model->uuid,

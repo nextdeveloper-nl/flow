@@ -17,13 +17,13 @@ class AutomationsQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function trigger($value)
     {
         return $this->builder->where('trigger', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function eventName($value)
     {
         return $this->builder->where('event_name', 'ilike', '%' . $value . '%');
@@ -34,7 +34,7 @@ class AutomationsQueryFilter extends AbstractQueryFilter
     {
         return $this->eventName($value);
     }
-    
+
     public function isActive($value)
     {
         return $this->builder->where('is_active', $value);
@@ -45,7 +45,7 @@ class AutomationsQueryFilter extends AbstractQueryFilter
     {
         return $this->isActive($value);
     }
-     
+
     public function createdAtStart($date)
     {
         return $this->builder->where('created_at', '>=', $date);
@@ -126,7 +126,7 @@ class AutomationsQueryFilter extends AbstractQueryFilter
     {
         return $this->flowPipeline($value);
     }
-    
+
     public function flowStageId($value)
     {
             $flowStage = \NextDeveloper\Flow\Database\Models\Stages::where('uuid', $value)->first();
@@ -141,7 +141,7 @@ class AutomationsQueryFilter extends AbstractQueryFilter
     {
         return $this->flowStage($value);
     }
-    
+
     public function iamAccountId($value)
     {
             $iamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -151,7 +151,7 @@ class AutomationsQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function commonPusherId($value)
     {
             $commonPusher = \NextDeveloper\Commons\Database\Models\Pushers::where('uuid', $value)->first();
@@ -166,7 +166,7 @@ class AutomationsQueryFilter extends AbstractQueryFilter
     {
         return $this->commonPusher($value);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 

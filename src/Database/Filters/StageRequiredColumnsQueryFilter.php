@@ -32,7 +32,7 @@ class StageRequiredColumnsQueryFilter extends AbstractQueryFilter
     {
         return $this->flowStage($value);
     }
-    
+
     public function flowColumnId($value)
     {
             $flowColumn = \NextDeveloper\Flow\Database\Models\Columns::where('uuid', $value)->first();
@@ -47,7 +47,7 @@ class StageRequiredColumnsQueryFilter extends AbstractQueryFilter
     {
         return $this->flowColumn($value);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 

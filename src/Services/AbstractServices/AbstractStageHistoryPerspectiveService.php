@@ -25,7 +25,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractStageHistoryPerspectiveService
 {
-    public static function get(StageHistoryPerspectiveQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?StageHistoryPerspectiveQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 
@@ -214,7 +214,7 @@ class AbstractStageHistoryPerspectiveService
                 $data['moved_by_iam_user_id']
             );
         }
-                        
+
         try {
             $model = StageHistoryPerspective::create($data);
         } catch(\Exception $e) {
@@ -290,7 +290,7 @@ class AbstractStageHistoryPerspectiveService
                 $data['moved_by_iam_user_id']
             );
         }
-    
+
         try {
             $isUpdated = $model->update($data);
             $model = $model->fresh();

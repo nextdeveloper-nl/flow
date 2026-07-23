@@ -25,7 +25,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractColumnsService
 {
-    public static function get(ColumnsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?ColumnsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 
@@ -190,7 +190,7 @@ class AbstractColumnsService
                 $data['flow_pipeline_id']
             );
         }
-                        
+
         try {
             $model = Columns::create($data);
         } catch(\Exception $e) {
@@ -242,7 +242,7 @@ class AbstractColumnsService
                 $data['flow_pipeline_id']
             );
         }
-    
+
         try {
             $isUpdated = $model->update($data);
             $model = $model->fresh();

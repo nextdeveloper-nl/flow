@@ -17,13 +17,13 @@ class ItemValuesQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function value($value)
     {
         return $this->builder->where('value', 'ilike', '%' . $value . '%');
     }
 
-    
+
     public function createdAtStart($date)
     {
         return $this->builder->where('created_at', '>=', $date);
@@ -82,7 +82,7 @@ class ItemValuesQueryFilter extends AbstractQueryFilter
     {
         return $this->flowItem($value);
     }
-    
+
     public function flowColumnId($value)
     {
             $flowColumn = \NextDeveloper\Flow\Database\Models\Columns::where('uuid', $value)->first();
@@ -97,7 +97,7 @@ class ItemValuesQueryFilter extends AbstractQueryFilter
     {
         return $this->flowColumn($value);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 

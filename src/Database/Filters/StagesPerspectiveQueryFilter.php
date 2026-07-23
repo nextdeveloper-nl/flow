@@ -17,19 +17,19 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function name($value)
     {
         return $this->builder->where('name', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function color($value)
     {
         return $this->builder->where('color', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function pipelineName($value)
     {
         return $this->builder->where('pipeline_name', 'ilike', '%' . $value . '%');
@@ -40,7 +40,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->pipelineName($value);
     }
-        
+
     public function pipelineObjectType($value)
     {
         return $this->builder->where('pipeline_object_type', 'ilike', '%' . $value . '%');
@@ -51,7 +51,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->pipelineObjectType($value);
     }
-    
+
     public function position($value)
     {
         $operator = substr($value, 0, 1);
@@ -65,7 +65,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
         return $this->builder->where('position', $operator, $value);
     }
 
-    
+
     public function probability($value)
     {
         $operator = substr($value, 0, 1);
@@ -79,7 +79,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
         return $this->builder->where('probability', $operator, $value);
     }
 
-    
+
     public function slaDays($value)
     {
         $operator = substr($value, 0, 1);
@@ -98,7 +98,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->slaDays($value);
     }
-    
+
     public function itemCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -117,7 +117,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->itemCount($value);
     }
-    
+
     public function slaBreachedCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -136,7 +136,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->slaBreachedCount($value);
     }
-    
+
     public function requiredColumnCount($value)
     {
         $operator = substr($value, 0, 1);
@@ -155,7 +155,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->requiredColumnCount($value);
     }
-    
+
     public function isWon($value)
     {
         return $this->builder->where('is_won', $value);
@@ -166,7 +166,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->isWon($value);
     }
-     
+
     public function isLost($value)
     {
         return $this->builder->where('is_lost', $value);
@@ -177,7 +177,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->isLost($value);
     }
-     
+
     public function isActive($value)
     {
         return $this->builder->where('is_active', $value);
@@ -188,7 +188,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->isActive($value);
     }
-     
+
     public function createdAtStart($date)
     {
         return $this->builder->where('created_at', '>=', $date);
@@ -269,7 +269,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->flowPipeline($value);
     }
-    
+
     public function pipelineIamAccountId($value)
     {
             $pipelineIamAccount = \NextDeveloper\IAM\Database\Models\Accounts::where('uuid', $value)->first();
@@ -284,7 +284,7 @@ class StagesPerspectiveQueryFilter extends AbstractQueryFilter
     {
         return $this->pipelineIamAccount($value);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 }

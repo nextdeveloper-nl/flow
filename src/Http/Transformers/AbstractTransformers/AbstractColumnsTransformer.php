@@ -55,7 +55,7 @@ class AbstractColumnsTransformer extends AbstractTransformer
     public function transform(Columns $model)
     {
                                                 $flowPipelineId = \NextDeveloper\Flow\Database\Models\Pipelines::where('id', $model->flow_pipeline_id)->first();
-                        
+
         return $this->buildPayload(
             [
             'id'  =>  $model->uuid,

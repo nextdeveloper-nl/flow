@@ -160,7 +160,7 @@ class Stages extends Model
     {
         return $this->belongsTo(\NextDeveloper\Flow\Database\Models\Pipelines::class);
     }
-    
+
     public function items() : \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\NextDeveloper\Flow\Database\Models\Items::class);

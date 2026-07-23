@@ -56,7 +56,7 @@ class AbstractItemValuesTransformer extends AbstractTransformer
     {
                                                 $flowItemId = \NextDeveloper\Flow\Database\Models\Items::where('id', $model->flow_item_id)->first();
                                                             $flowColumnId = \NextDeveloper\Flow\Database\Models\Columns::where('id', $model->flow_column_id)->first();
-                        
+
         return $this->buildPayload(
             [
             'id'  =>  $model->id,

@@ -25,7 +25,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractStageRequiredColumnsService
 {
-    public static function get(StageRequiredColumnsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?StageRequiredColumnsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 
@@ -196,7 +196,7 @@ class AbstractStageRequiredColumnsService
                 $data['flow_column_id']
             );
         }
-                        
+
         try {
             $model = StageRequiredColumns::create($data);
         } catch(\Exception $e) {
@@ -254,7 +254,7 @@ class AbstractStageRequiredColumnsService
                 $data['flow_column_id']
             );
         }
-    
+
         try {
             $isUpdated = $model->update($data);
             $model = $model->fresh();

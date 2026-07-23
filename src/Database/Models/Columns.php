@@ -157,7 +157,7 @@ class Columns extends Model
     {
         return $this->belongsTo(\NextDeveloper\Flow\Database\Models\Pipelines::class);
     }
-    
+
     public function stageRequiredColumns() : \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\NextDeveloper\Flow\Database\Models\StageRequiredColumns::class);

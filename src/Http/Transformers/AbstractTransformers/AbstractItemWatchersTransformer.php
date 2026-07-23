@@ -56,7 +56,7 @@ class AbstractItemWatchersTransformer extends AbstractTransformer
     {
                                                 $flowItemId = \NextDeveloper\Flow\Database\Models\Items::where('id', $model->flow_item_id)->first();
                                                             $iamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->iam_user_id)->first();
-                        
+
         return $this->buildPayload(
             [
             'id'  =>  $model->id,

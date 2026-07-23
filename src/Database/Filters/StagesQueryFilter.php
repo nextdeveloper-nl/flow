@@ -17,19 +17,19 @@ class StagesQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function name($value)
     {
         return $this->builder->where('name', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function color($value)
     {
         return $this->builder->where('color', 'ilike', '%' . $value . '%');
     }
 
-    
+
     public function position($value)
     {
         $operator = substr($value, 0, 1);
@@ -43,7 +43,7 @@ class StagesQueryFilter extends AbstractQueryFilter
         return $this->builder->where('position', $operator, $value);
     }
 
-    
+
     public function probability($value)
     {
         $operator = substr($value, 0, 1);
@@ -57,7 +57,7 @@ class StagesQueryFilter extends AbstractQueryFilter
         return $this->builder->where('probability', $operator, $value);
     }
 
-    
+
     public function slaDays($value)
     {
         $operator = substr($value, 0, 1);
@@ -76,7 +76,7 @@ class StagesQueryFilter extends AbstractQueryFilter
     {
         return $this->slaDays($value);
     }
-    
+
     public function isWon($value)
     {
         return $this->builder->where('is_won', $value);
@@ -87,7 +87,7 @@ class StagesQueryFilter extends AbstractQueryFilter
     {
         return $this->isWon($value);
     }
-     
+
     public function isLost($value)
     {
         return $this->builder->where('is_lost', $value);
@@ -98,7 +98,7 @@ class StagesQueryFilter extends AbstractQueryFilter
     {
         return $this->isLost($value);
     }
-     
+
     public function isActive($value)
     {
         return $this->builder->where('is_active', $value);
@@ -109,7 +109,7 @@ class StagesQueryFilter extends AbstractQueryFilter
     {
         return $this->isActive($value);
     }
-     
+
     public function createdAtStart($date)
     {
         return $this->builder->where('created_at', '>=', $date);
@@ -190,7 +190,7 @@ class StagesQueryFilter extends AbstractQueryFilter
     {
         return $this->flowPipeline($value);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 

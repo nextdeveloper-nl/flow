@@ -25,7 +25,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractItemsService
 {
-    public static function get(ItemsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?ItemsQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 
@@ -202,7 +202,7 @@ class AbstractItemsService
                 $data['iam_account_id']
             );
         }
-            
+
         if(!array_key_exists('iam_account_id', $data)) {
             $data['iam_account_id'] = UserHelper::currentAccount()->id;
         }
@@ -212,7 +212,7 @@ class AbstractItemsService
                 $data['iam_user_id']
             );
         }
-                    
+
         if(!array_key_exists('iam_user_id', $data)) {
             $data['iam_user_id']    = UserHelper::me()->id;
         }
@@ -222,7 +222,7 @@ class AbstractItemsService
                 $data['assigned_iam_user_id']
             );
         }
-                        
+
         try {
             $model = Items::create($data);
         } catch(\Exception $e) {
@@ -298,7 +298,7 @@ class AbstractItemsService
                 $data['assigned_iam_user_id']
             );
         }
-    
+
         try {
             $isUpdated = $model->update($data);
             $model = $model->fresh();

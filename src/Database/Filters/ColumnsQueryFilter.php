@@ -17,19 +17,19 @@ class ColumnsQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function name($value)
     {
         return $this->builder->where('name', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function label($value)
     {
         return $this->builder->where('label', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function fieldType($value)
     {
         return $this->builder->where('field_type', 'ilike', '%' . $value . '%');
@@ -40,7 +40,7 @@ class ColumnsQueryFilter extends AbstractQueryFilter
     {
         return $this->fieldType($value);
     }
-        
+
     public function defaultValue($value)
     {
         return $this->builder->where('default_value', 'ilike', '%' . $value . '%');
@@ -51,7 +51,7 @@ class ColumnsQueryFilter extends AbstractQueryFilter
     {
         return $this->defaultValue($value);
     }
-    
+
     public function position($value)
     {
         $operator = substr($value, 0, 1);
@@ -65,7 +65,7 @@ class ColumnsQueryFilter extends AbstractQueryFilter
         return $this->builder->where('position', $operator, $value);
     }
 
-    
+
     public function isRequired($value)
     {
         return $this->builder->where('is_required', $value);
@@ -76,7 +76,7 @@ class ColumnsQueryFilter extends AbstractQueryFilter
     {
         return $this->isRequired($value);
     }
-     
+
     public function isActive($value)
     {
         return $this->builder->where('is_active', $value);
@@ -87,7 +87,7 @@ class ColumnsQueryFilter extends AbstractQueryFilter
     {
         return $this->isActive($value);
     }
-     
+
     public function createdAtStart($date)
     {
         return $this->builder->where('created_at', '>=', $date);
@@ -168,7 +168,7 @@ class ColumnsQueryFilter extends AbstractQueryFilter
     {
         return $this->flowPipeline($value);
     }
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 

@@ -56,7 +56,7 @@ class AbstractStageRequiredColumnsTransformer extends AbstractTransformer
     {
                                                 $flowStageId = \NextDeveloper\Flow\Database\Models\Stages::where('id', $model->flow_stage_id)->first();
                                                             $flowColumnId = \NextDeveloper\Flow\Database\Models\Columns::where('id', $model->flow_column_id)->first();
-                        
+
         return $this->buildPayload(
             [
             'id'  =>  $model->id,

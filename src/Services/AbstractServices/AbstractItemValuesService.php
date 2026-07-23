@@ -25,7 +25,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractItemValuesService
 {
-    public static function get(ItemValuesQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?ItemValuesQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 
@@ -196,7 +196,7 @@ class AbstractItemValuesService
                 $data['flow_column_id']
             );
         }
-                        
+
         try {
             $model = ItemValues::create($data);
         } catch(\Exception $e) {
@@ -254,7 +254,7 @@ class AbstractItemValuesService
                 $data['flow_column_id']
             );
         }
-    
+
         try {
             $isUpdated = $model->update($data);
             $model = $model->fresh();

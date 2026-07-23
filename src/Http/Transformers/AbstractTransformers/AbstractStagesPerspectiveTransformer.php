@@ -56,7 +56,7 @@ class AbstractStagesPerspectiveTransformer extends AbstractTransformer
     {
                                                 $flowPipelineId = \NextDeveloper\Flow\Database\Models\Pipelines::where('id', $model->flow_pipeline_id)->first();
                                                             $pipelineIamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->pipeline_iam_account_id)->first();
-                        
+
         return $this->buildPayload(
             [
             'id'  =>  $model->uuid,

@@ -156,12 +156,12 @@ class Items extends Model
     {
         return $this->belongsTo(\NextDeveloper\Flow\Database\Models\Pipelines::class);
     }
-    
+
     public function stages() : \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\NextDeveloper\Flow\Database\Models\Stages::class);
     }
-    
+
     public function itemValues() : \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\NextDeveloper\Flow\Database\Models\ItemValues::class);

@@ -17,19 +17,19 @@ class PipelinesQueryFilter extends AbstractQueryFilter
      * @var Builder
      */
     protected $builder;
-    
+
     public function name($value)
     {
         return $this->builder->where('name', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function description($value)
     {
         return $this->builder->where('description', 'ilike', '%' . $value . '%');
     }
 
-        
+
     public function objectType($value)
     {
         return $this->builder->where('object_type', 'ilike', '%' . $value . '%');
@@ -40,7 +40,7 @@ class PipelinesQueryFilter extends AbstractQueryFilter
     {
         return $this->objectType($value);
     }
-    
+
     public function isTemplate($value)
     {
         return $this->builder->where('is_template', $value);
@@ -51,7 +51,7 @@ class PipelinesQueryFilter extends AbstractQueryFilter
     {
         return $this->isTemplate($value);
     }
-     
+
     public function isSystem($value)
     {
         return $this->builder->where('is_system', $value);
@@ -62,7 +62,7 @@ class PipelinesQueryFilter extends AbstractQueryFilter
     {
         return $this->isSystem($value);
     }
-     
+
     public function isActive($value)
     {
         return $this->builder->where('is_active', $value);
@@ -73,7 +73,7 @@ class PipelinesQueryFilter extends AbstractQueryFilter
     {
         return $this->isActive($value);
     }
-     
+
     public function createdAtStart($date)
     {
         return $this->builder->where('created_at', '>=', $date);
@@ -149,7 +149,7 @@ class PipelinesQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     public function iamUserId($value)
     {
             $iamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
@@ -159,7 +159,7 @@ class PipelinesQueryFilter extends AbstractQueryFilter
         }
     }
 
-    
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 

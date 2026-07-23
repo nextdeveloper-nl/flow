@@ -59,7 +59,7 @@ class AbstractStageHistoryPerspectiveTransformer extends AbstractTransformer
                                                             $fromStageId = \NextDeveloper\Flow\Database\Models\Stages::where('id', $model->from_stage_id)->first();
                                                             $toStageId = \NextDeveloper\Flow\Database\Models\Stages::where('id', $model->to_stage_id)->first();
                                                             $movedByIamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->moved_by_iam_user_id)->first();
-                        
+
         return $this->buildPayload(
             [
             'id'  =>  $model->uuid,

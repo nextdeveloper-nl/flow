@@ -25,7 +25,7 @@ use NextDeveloper\Commons\Exceptions\NotAllowedException;
  */
 class AbstractStageHistoriesService
 {
-    public static function get(StageHistoriesQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
+    public static function get(?StageHistoriesQueryFilter $filter = null, array $params = []) : Collection|LengthAwarePaginator
     {
         $enablePaginate = array_key_exists('paginate', $params);
 
@@ -214,7 +214,7 @@ class AbstractStageHistoriesService
                 $data['moved_by_iam_user_id']
             );
         }
-                        
+
         try {
             $model = StageHistories::create($data);
         } catch(\Exception $e) {
@@ -290,7 +290,7 @@ class AbstractStageHistoriesService
                 $data['moved_by_iam_user_id']
             );
         }
-    
+
         try {
             $isUpdated = $model->update($data);
             $model = $model->fresh();
