@@ -27,7 +27,7 @@ class PipelinesService extends AbstractPipelinesService
      *
      * @throws NotAllowedException if the referenced pipeline is not a template.
      */
-    public static function cloneFromTemplate(string $templateUuid, ?string $name = null): Pipelines
+    public static function cloneFromTemplate(string $templateUuid, ?string $name = null, ?string $campaignType = null): Pipelines
     {
         $template = Pipelines::withoutGlobalScopes()
             ->where('uuid', $templateUuid)
@@ -41,7 +41,7 @@ class PipelinesService extends AbstractPipelinesService
         $accountId = UserHelper::currentAccount()->id;
         $userId    = UserHelper::me()->id;
 
-        return DB::transaction(function () use ($template, $name, $accountId, $userId) {
+        return DB::transaction(function () use ($template, $name, $campaignType, $accountId, $userId) {
             // 1. Create new pipeline from template
             $pipeline = Pipelines::create([
                 'name'           => $name ?? $template->name,
@@ -50,6 +50,7 @@ class PipelinesService extends AbstractPipelinesService
                 'is_template'    => false,
                 'is_system'      => false,
                 'is_active'      => $template->is_active,
+                'campaign_type'  => $campaignType,
                 'iam_account_id' => $accountId,
                 'iam_user_id'    => $userId,
             ]);
@@ -131,6 +132,80 @@ class PipelinesService extends AbstractPipelinesService
                     'payload_template' => $automation->payload_template,
                     'is_active'        => $automation->is_active,
                     'iam_account_id'   => $accountId,
+                ]);
+            }
+
+            return $pipeline->fresh();
+        });
+    }
+
+    /**
+     * Returns the catalog of pipeline templates defined in config('flow.pipeline_templates'),
+     * for the "start with a template" picker UI.
+     *
+     * @return array
+     */
+    public static function listTemplates(): array
+    {
+        $templates = config('flow.pipeline_templates', []);
+
+        $result = [];
+        foreach ($templates as $id => $template) {
+            $result[] = [
+                'id'            => $id,
+                'name'          => $template['name'],
+                'description'   => $template['description'],
+                'icon'          => $template['icon'],
+                'campaign_type' => $template['campaign_type'],
+                'stages'        => $template['stages'],
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Creates a real pipeline + ordered stages for the current account from a config-defined
+     * template (config('flow.pipeline_templates')). Unlike cloneFromTemplate(), this does not
+     * read from a DB "is_template" row — the template definition itself lives in config.
+     *
+     * @throws NotAllowedException if the template id does not exist in config.
+     */
+    public static function createFromTemplate(string $templateId, ?string $name = null): Pipelines
+    {
+        $template = config("flow.pipeline_templates.{$templateId}");
+
+        if (!$template) {
+            throw new NotAllowedException('Pipeline template not found.');
+        }
+
+        $accountId = UserHelper::currentAccount()->id;
+        $userId    = UserHelper::me()->id;
+
+        return DB::transaction(function () use ($template, $name, $accountId, $userId) {
+            $pipeline = Pipelines::create([
+                'name'           => $name ?? $template['name'],
+                'description'    => $template['description'],
+                'is_template'    => false,
+                'is_system'      => false,
+                'is_active'      => true,
+                'campaign_type'  => $template['campaign_type'],
+                'iam_account_id' => $accountId,
+                'iam_user_id'    => $userId,
+            ]);
+
+            foreach ($template['stages'] as $position => $stage) {
+                Stages::create([
+                    'flow_pipeline_id' => $pipeline->id,
+                    'name'             => $stage['name'],
+                    'color'            => $stage['color'],
+                    'position'         => $position,
+                    'probability'      => $stage['probability'],
+                    'sla_days'         => $stage['sla_days'],
+                    'is_won'           => $stage['is_won'],
+                    'is_lost'          => $stage['is_lost'],
+                    'checklist'        => null,
+                    'is_active'        => true,
                 ]);
             }
 

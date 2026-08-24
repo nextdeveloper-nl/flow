@@ -5,6 +5,8 @@ Route::prefix('pipelines')->group(
     function () {
         Route::get('/', 'Pipelines\PipelinesController@index');
         Route::get('/actions', 'Pipelines\PipelinesController@getActions');
+        Route::get('/templates', 'Pipelines\PipelinesController@templates');
+        Route::post('/from-template', 'Pipelines\PipelinesController@createFromTemplate');
 
         Route::get('{flow_pipelines}/tags ', 'Pipelines\PipelinesController@tags');
         Route::post('{flow_pipelines}/tags ', 'Pipelines\PipelinesController@saveTags');

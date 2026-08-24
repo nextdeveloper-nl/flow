@@ -154,4 +154,33 @@ class PipelinesController extends AbstractController
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
+    /**
+     * Returns the catalog of pipeline templates (config-defined) for the "start with a
+     * template" picker UI.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function templates()
+    {
+        $data = PipelinesService::listTemplates();
+
+        return ResponsableFactory::makeResponse($this, $data);
+    }
+
+    /**
+     * Creates a new pipeline + ordered stages from a config-defined template.
+     *
+     * @param  Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function createFromTemplate(Request $request)
+    {
+        $model = PipelinesService::createFromTemplate(
+            $request->get('template_id'),
+            $request->get('name')
+        );
+
+        return ResponsableFactory::makeResponse($this, $model);
+    }
+
 }
