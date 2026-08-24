@@ -10,14 +10,12 @@ CREATE TABLE flow_pipelines (
     is_template     boolean NOT NULL DEFAULT false, -- If true, this pipeline is a reusable blueprint accounts can clone from.
     is_system       boolean NOT NULL DEFAULT false, -- If true, this pipeline is a system-level template not owned by any account.
     is_active       boolean NOT NULL DEFAULT true,
-    campaign_type   text, -- Set when this pipeline was cloned for a CRM campaign; sales or marketing.
     iam_account_id  bigint,
     iam_user_id     bigint,
     created_at      timestamp with time zone NOT NULL DEFAULT now(),
     updated_at      timestamp with time zone NOT NULL DEFAULT now(),
     deleted_at      timestamp with time zone,
-    CONSTRAINT flow_pipelines_pkey PRIMARY KEY (id),
-    CONSTRAINT flow_pipelines_campaign_type_check CHECK (campaign_type IS NULL OR campaign_type = ANY (ARRAY['sales'::text, 'marketing'::text]))
+    CONSTRAINT flow_pipelines_pkey PRIMARY KEY (id)
 );
 
 CREATE INDEX idx_flow_pipelines_account ON public.flow_pipelines USING btree (iam_account_id);

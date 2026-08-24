@@ -27,7 +27,7 @@ class PipelinesService extends AbstractPipelinesService
      *
      * @throws NotAllowedException if the referenced pipeline is not a template.
      */
-    public static function cloneFromTemplate(string $templateUuid, ?string $name = null, ?string $campaignType = null): Pipelines
+    public static function cloneFromTemplate(string $templateUuid, ?string $name = null): Pipelines
     {
         $template = Pipelines::withoutGlobalScopes()
             ->where('uuid', $templateUuid)
@@ -41,7 +41,7 @@ class PipelinesService extends AbstractPipelinesService
         $accountId = UserHelper::currentAccount()->id;
         $userId    = UserHelper::me()->id;
 
-        return DB::transaction(function () use ($template, $name, $campaignType, $accountId, $userId) {
+        return DB::transaction(function () use ($template, $name, $accountId, $userId) {
             // 1. Create new pipeline from template
             $pipeline = Pipelines::create([
                 'name'           => $name ?? $template->name,
@@ -50,7 +50,6 @@ class PipelinesService extends AbstractPipelinesService
                 'is_template'    => false,
                 'is_system'      => false,
                 'is_active'      => $template->is_active,
-                'campaign_type'  => $campaignType,
                 'iam_account_id' => $accountId,
                 'iam_user_id'    => $userId,
             ]);
@@ -189,7 +188,6 @@ class PipelinesService extends AbstractPipelinesService
                 'is_template'    => false,
                 'is_system'      => false,
                 'is_active'      => true,
-                'campaign_type'  => $template['campaign_type'],
                 'iam_account_id' => $accountId,
                 'iam_user_id'    => $userId,
             ]);
