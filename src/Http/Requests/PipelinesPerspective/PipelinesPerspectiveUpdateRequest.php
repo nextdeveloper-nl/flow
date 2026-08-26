@@ -16,6 +16,7 @@ class PipelinesPerspectiveUpdateRequest extends AbstractFormRequest
             'name' => 'nullable|string',
         'description' => 'nullable|string',
         'object_type' => 'nullable|string',
+        'object_id' => 'nullable|integer',
         'is_template' => 'nullable|boolean',
         'is_system' => 'nullable|boolean',
         'is_active' => 'nullable|boolean',

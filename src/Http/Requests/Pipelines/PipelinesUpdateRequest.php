@@ -16,6 +16,7 @@ class PipelinesUpdateRequest extends AbstractFormRequest
             'name' => 'nullable|string',
         'description' => 'nullable|string',
         'object_type' => 'nullable|string',
+        'object_id' => 'nullable|integer',
         'is_template' => 'boolean',
         'is_system' => 'boolean',
         'is_active' => 'boolean',

@@ -63,6 +63,7 @@ class AbstractPipelinesPerspectiveTransformer extends AbstractTransformer
             'name'  =>  $model->name,
             'description'  =>  $model->description,
             'object_type'  =>  $model->object_type,
+            'object_id'  =>  $model->object_id,
             'is_template'  =>  $model->is_template,
             'is_system'  =>  $model->is_system,
             'is_active'  =>  $model->is_active,

@@ -23,6 +23,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property string $name
  * @property string $description
  * @property string $object_type
+ * @property integer $object_id
  * @property boolean $is_template
  * @property boolean $is_system
  * @property boolean $is_active
@@ -55,6 +56,7 @@ class PipelinesPerspective extends Model
             'name',
             'description',
             'object_type',
+            'object_id',
             'is_template',
             'is_system',
             'is_active',
@@ -90,6 +92,7 @@ class PipelinesPerspective extends Model
     'name' => 'string',
     'description' => 'string',
     'object_type' => 'string',
+    'object_id' => 'integer',
     'is_template' => 'boolean',
     'is_system' => 'boolean',
     'is_active' => 'boolean',

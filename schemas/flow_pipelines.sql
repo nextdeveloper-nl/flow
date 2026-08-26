@@ -7,6 +7,7 @@ CREATE TABLE flow_pipelines (
     name            text NOT NULL,
     description     text,
     object_type     text, -- Advisory: the object type this pipeline is designed for, e.g. crm_opportunity, support_ticket.
+    object_id       bigint, -- Reverse relation: id of the object_type row this pipeline belongs to (e.g. crm_campaigns.id).
     is_template     boolean NOT NULL DEFAULT false, -- If true, this pipeline is a reusable blueprint accounts can clone from.
     is_system       boolean NOT NULL DEFAULT false, -- If true, this pipeline is a system-level template not owned by any account.
     is_active       boolean NOT NULL DEFAULT true,
@@ -21,3 +22,4 @@ CREATE TABLE flow_pipelines (
 CREATE INDEX idx_flow_pipelines_account ON public.flow_pipelines USING btree (iam_account_id);
 CREATE INDEX idx_flow_pipelines_is_template ON public.flow_pipelines USING btree (is_template);
 CREATE INDEX idx_flow_pipelines_object_type ON public.flow_pipelines USING btree (object_type);
+CREATE INDEX idx_flow_pipelines_object_id ON public.flow_pipelines USING btree (object_id);

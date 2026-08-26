@@ -41,6 +41,17 @@ class PipelinesPerspectiveQueryFilter extends AbstractQueryFilter
         return $this->objectType($value);
     }
 
+    public function objectId($value)
+    {
+        return $this->builder->where('object_id', $value);
+    }
+
+        //  This is an alias function of objectId
+    public function object_id($value)
+    {
+        return $this->objectId($value);
+    }
+
     public function stageCount($value)
     {
         $operator = substr($value, 0, 1);
