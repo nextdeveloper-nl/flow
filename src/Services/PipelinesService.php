@@ -212,4 +212,25 @@ class PipelinesService extends AbstractPipelinesService
     }
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
+    /**
+     * Restores a soft-deleted pipeline.
+     *
+     * @throws NotAllowedException if the pipeline cannot be found.
+     */
+    public static function restore($id): Pipelines
+    {
+        $model = Pipelines::withTrashed()->where('uuid', $id)->first();
+
+        if (!$model) {
+            throw new NotAllowedException(
+                'We cannot find the related object to restore. ' .
+                'Maybe you dont have the permission to update this object?'
+            );
+        }
+
+        $model->restore();
+
+        return $model->fresh();
+    }
 }
