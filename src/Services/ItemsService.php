@@ -92,10 +92,22 @@ class ItemsService extends AbstractItemsService
                 $isStageMove                   = true;
                 $data['checklist_state']       = null;
                 $data['last_stage_changed_at'] = now();
+            } else {
+                Log::info('[ItemsService::update] flow_stage_id unchanged — no stage move, automations will not fire.', [
+                    'flow_item_id' => $item->uuid,
+                    'stage_id'     => $newStageId,
+                ]);
             }
         }
 
         $model = parent::update($id, $data);
+
+        Log::info('[ItemsService::update] Stage move check', [
+            'flow_item_id'  => $item->uuid,
+            'old_stage_id'  => $oldStageId,
+            'new_stage_id'  => $newStageId,
+            'is_stage_move' => $isStageMove,
+        ]);
 
         if ($isStageMove) {
             StageHistories::create([
@@ -238,8 +250,24 @@ class ItemsService extends AbstractItemsService
         }
         // item_moved, item_created, item_deleted have no stage filter
 
-        foreach ($query->get() as $automation) {
+        $automations = $query->get();
+
+        Log::info('[ItemsService::fireAutomations] Matched automations', [
+            'flow_item_id'    => $item->uuid,
+            'trigger'         => $trigger,
+            'from_stage_id'   => $fromStageId,
+            'to_stage_id'     => $toStageId,
+            'automation_ids'  => $automations->pluck('id')->all(),
+        ]);
+
+        foreach ($automations as $automation) {
             if ($automation->common_pusher_id) {
+                Log::info('[ItemsService::fireAutomations] Dispatching pusher for automation', [
+                    'flow_item_id'    => $item->uuid,
+                    'automation_id'   => $automation->id,
+                    'common_pusher_id' => $automation->common_pusher_id,
+                ]);
+
                 self::triggerPusher($automation, $item);
             }
 
