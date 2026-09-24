@@ -13,6 +13,8 @@ use NextDeveloper\IAM\Helpers\UserHelper;
 
 class FlowUserRole extends AbstractRole implements IAuthorizationRole
 {
+    use AuthorizesLinkedObject;
+
     public const NAME = 'flow-user';
 
     public const LEVEL = 200;
@@ -130,6 +132,12 @@ class FlowUserRole extends AbstractRole implements IAuthorizationRole
             return false;
         }
 
+        $linkedPermission = $this->getLinkedObjectPermission($model, 'update');
+
+        if ($linkedPermission !== null) {
+            return $linkedPermission;
+        }
+
         if (DatabaseHelper::isColumnExists($model->getTable(), 'iam_user_id')) {
             return $model->iam_user_id == UserHelper::me()->id;
         }
@@ -159,6 +167,12 @@ class FlowUserRole extends AbstractRole implements IAuthorizationRole
 
         if (!in_array($operation, $this->allowedOperations())) {
             return false;
+        }
+
+        $linkedPermission = $this->getLinkedObjectPermission($model, 'delete');
+
+        if ($linkedPermission !== null) {
+            return $linkedPermission;
         }
 
         if (DatabaseHelper::isColumnExists($model->getTable(), 'iam_user_id')) {
