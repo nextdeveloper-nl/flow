@@ -123,6 +123,12 @@ class FlowManagerRole extends AbstractRole implements IAuthorizationRole
             return true;
         }
 
+        $linkedPermission = $this->getLinkedObjectPermission($model, 'update');
+
+        if ($linkedPermission !== null) {
+            return $linkedPermission;
+        }
+
         $operation = $model->getTable() . ':update';
 
         if (in_array('!' . $operation, $this->allowedOperations())) {
@@ -131,12 +137,6 @@ class FlowManagerRole extends AbstractRole implements IAuthorizationRole
 
         if (!in_array($operation, $this->allowedOperations())) {
             return false;
-        }
-
-        $linkedPermission = $this->getLinkedObjectPermission($model, 'update');
-
-        if ($linkedPermission !== null) {
-            return $linkedPermission;
         }
 
         if (DatabaseHelper::isColumnExists($model->getTable(), 'iam_account_id')) {
@@ -155,6 +155,12 @@ class FlowManagerRole extends AbstractRole implements IAuthorizationRole
             return true;
         }
 
+        $linkedPermission = $this->getLinkedObjectPermission($model, 'delete');
+
+        if ($linkedPermission !== null) {
+            return $linkedPermission;
+        }
+
         $operation = $model->getTable() . ':delete';
 
         if (in_array('!' . $operation, $this->allowedOperations())) {
@@ -163,12 +169,6 @@ class FlowManagerRole extends AbstractRole implements IAuthorizationRole
 
         if (!in_array($operation, $this->allowedOperations())) {
             return false;
-        }
-
-        $linkedPermission = $this->getLinkedObjectPermission($model, 'delete');
-
-        if ($linkedPermission !== null) {
-            return $linkedPermission;
         }
 
         if (DatabaseHelper::isColumnExists($model->getTable(), 'iam_account_id')) {
