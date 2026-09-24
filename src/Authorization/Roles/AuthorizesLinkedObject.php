@@ -3,6 +3,7 @@
 namespace NextDeveloper\Flow\Authorization\Roles;
 
 use Illuminate\Database\Eloquent\Model;
+use NextDeveloper\Commons\Helpers\ObjectHelper;
 use NextDeveloper\IAM\Helpers\UserHelper;
 
 /**
@@ -23,11 +24,15 @@ trait AuthorizesLinkedObject
             return null;
         }
 
-        if (!method_exists($model, 'getObject') || !$model->object_type || !$model->object_id) {
+        if (!$model->object_type || !$model->object_id) {
             return null;
         }
 
-        $linkedObject = $model->getObject();
+        // object_type is stored in short form (e.g. NextDeveloper\CRM\Opportunities),
+        // not the full ...\Database\Models\... class path, so we resolve via
+        // ObjectHelper (same convention ItemsService::resolveObject() uses) rather
+        // than the HasObject trait's getObject(), which expects a full FQCN.
+        $linkedObject = ObjectHelper::getObject($model->object_type, $model->object_id);
 
         if (!$linkedObject) {
             return null;
