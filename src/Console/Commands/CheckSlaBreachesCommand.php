@@ -81,18 +81,21 @@ class CheckSlaBreachesCommand extends Command
             return self::SUCCESS;
         }
 
-        // Step 3: evaluate each item
+        // Step 3: evaluate each item.
+        // Breach status comes from flow_items_perspective.sla_breached (what the UI
+        // shows) — the old (int) diffInDays rule fired up to a day after the UI did.
+        $breachedIds   = ItemsService::getSlaBreachedItemIds();
         $breachedCount = 0;
 
         foreach ($items as $item) {
-            $stage      = $slaStages->get($item->flow_stage_id);
-            $daysInStage = (int) $item->last_stage_changed_at->diffInDays(now());
-            $breached    = $daysInStage > $stage->sla_days;
+            $stage       = $slaStages->get($item->flow_stage_id);
+            $hoursInStage = round($item->last_stage_changed_at->diffInMinutes(now()) / 60, 1);
+            $breached     = isset($breachedIds[$item->id]);
 
             $status = $breached ? '<fg=red>BREACHED</>' : '<fg=green>OK</>';
             $this->line(
                 "  Item [{$item->uuid}] stage \"{$stage->name}\" — "
-                . "{$daysInStage}d in stage / {$stage->sla_days}d SLA — {$status}"
+                . "{$hoursInStage}h in stage / {$stage->sla_days}d SLA — {$status}"
             );
 
             if (!$breached) {

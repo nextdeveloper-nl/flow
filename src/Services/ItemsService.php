@@ -12,6 +12,7 @@ use NextDeveloper\Flow\Database\Models\Automations;
 use NextDeveloper\Flow\Database\Models\ItemValues;
 use NextDeveloper\Flow\Database\Models\ItemWatchers;
 use NextDeveloper\Flow\Database\Models\Items;
+use NextDeveloper\Flow\Database\Models\ItemsPerspective;
 use NextDeveloper\Flow\Database\Models\StageHistories;
 use NextDeveloper\Flow\Database\Models\StageRequiredColumns;
 use NextDeveloper\Flow\Database\Models\Stages;
@@ -314,6 +315,24 @@ class ItemsService extends AbstractItemsService
         }
 
         self::triggerPusher($automation, $item);
+    }
+
+    /**
+     * Returns the ids of items whose SLA is breached, keyed by id for fast lookup.
+     *
+     * Reads flow_items_perspective.sla_breached — the same value the UI shows —
+     * instead of recomputing it in PHP. The previous PHP rule floored the day count
+     * ((int) diffInDays), so the check fired up to a full day after the UI already
+     * showed the item as breached. Using the view keeps backend and UI identical.
+     */
+    public static function getSlaBreachedItemIds(): array
+    {
+        return ItemsPerspective::withoutGlobalScopes()
+            ->where('sla_breached', true)
+            ->whereNull('deleted_at')
+            ->pluck('id')
+            ->flip()
+            ->all();
     }
 
     /**

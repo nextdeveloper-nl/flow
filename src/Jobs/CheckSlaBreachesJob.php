@@ -59,6 +59,11 @@ class CheckSlaBreachesJob implements ShouldQueue
             ->whereNull('deleted_at')
             ->get();
 
+        // Breach status comes from flow_items_perspective.sla_breached (what the UI
+        // shows) — the old diffInDays rule is floored by Carbon 2 and fired up to a
+        // day after the UI did.
+        $breachedIds = ItemsService::getSlaBreachedItemIds();
+
         foreach ($items as $item) {
             $stage = $slaStages->get($item->flow_stage_id);
 
@@ -66,9 +71,7 @@ class CheckSlaBreachesJob implements ShouldQueue
                 continue;
             }
 
-            $daysInStage = $item->last_stage_changed_at->diffInDays(now());
-
-            if ($daysInStage <= $stage->sla_days) {
+            if (!isset($breachedIds[$item->id])) {
                 continue;
             }
 
