@@ -68,6 +68,8 @@ class AbstractItemsPerspectiveTransformer extends AbstractTransformer
             'object_id'  =>  $model->object_id,
             'position'  =>  $model->position,
             'last_stage_changed_at'  =>  $model->last_stage_changed_at,
+            'sla_breached_at'  =>  $model->sla_breached_at,
+            'sla_actioned_at'  =>  $model->sla_actioned_at,
             'checklist_state'  =>  $model->checklist_state,
             'iam_account_id'  =>  $iamAccountId ? $iamAccountId->uuid : null,
             'iam_user_id'  =>  $iamUserId ? $iamUserId->uuid : null,

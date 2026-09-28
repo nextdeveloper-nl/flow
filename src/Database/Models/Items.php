@@ -26,6 +26,8 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property integer $object_id
  * @property integer $position
  * @property \Carbon\Carbon $last_stage_changed_at
+ * @property \Carbon\Carbon $sla_breached_at
+ * @property \Carbon\Carbon $sla_actioned_at
  * @property $checklist_state
  * @property integer $iam_account_id
  * @property integer $iam_user_id
@@ -55,6 +57,8 @@ class Items extends Model
             'object_id',
             'position',
             'last_stage_changed_at',
+            'sla_breached_at',
+            'sla_actioned_at',
             'checklist_state',
             'iam_account_id',
             'iam_user_id',
@@ -87,6 +91,8 @@ class Items extends Model
     'object_id' => 'integer',
     'position' => 'integer',
     'last_stage_changed_at' => 'datetime',
+    'sla_breached_at' => 'datetime',
+    'sla_actioned_at' => 'datetime',
     'checklist_state' => 'array',
     'created_at' => 'datetime',
     'updated_at' => 'datetime',
@@ -100,6 +106,8 @@ class Items extends Model
      */
     protected $dates = [
     'last_stage_changed_at',
+    'sla_breached_at',
+    'sla_actioned_at',
     'created_at',
     'updated_at',
     'deleted_at',

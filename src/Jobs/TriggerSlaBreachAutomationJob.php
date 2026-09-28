@@ -33,18 +33,25 @@ class TriggerSlaBreachAutomationJob implements ShouldQueue
 
     public int $timeout = 120;
 
+    // False when the push already ran for this stage visit; only the event fires.
+    // A plain property with a default (not constructor-promoted) so jobs queued
+    // before this field existed still unserialize with firePusher = true.
+    public bool $firePusher = true;
+
     public function __construct(
         public int $flowItemId,
         public int $flowAutomationId,
-        public int $flowStageId
+        public int $flowStageId,
+        bool $firePusher = true
     ) {
-        $this->queue = self::QUEUE_NAME;
+        $this->firePusher = $firePusher;
+        $this->queue      = self::QUEUE_NAME;
     }
 
     public function handle(): void
     {
         UserHelper::setAdminAsCurrentUser();
 
-        ItemsService::fireSlaBreachAutomation($this->flowItemId, $this->flowAutomationId, $this->flowStageId);
+        ItemsService::fireSlaBreachAutomation($this->flowItemId, $this->flowAutomationId, $this->flowStageId, $this->firePusher);
     }
 }

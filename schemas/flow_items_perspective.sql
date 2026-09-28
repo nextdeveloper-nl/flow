@@ -37,13 +37,13 @@ SELECT fi.id,
             WHEN 'NextDeveloper\CRM\Opportunities'::text THEN opp.income
             ELSE NULL::numeric
         END AS object_value,
-        CASE
-            WHEN fs.sla_days IS NULL THEN false
-            WHEN fs.is_won THEN false
-            WHEN fs.is_lost THEN false
-            WHEN (now() - fi.last_stage_changed_at) > ((fs.sla_days || ' days'::text)::interval) THEN true
-            ELSE false
-        END AS sla_breached
+        -- flow_items.sla_breached_at is stored at stage entry (entered + sla_days,
+        -- NULL for stages without SLA or won/lost), so the UI and the hourly SLA check
+        -- (ItemsService::checkSlaBreaches) use exactly the same deadline.
+        COALESCE(fi.sla_breached_at <= now(), false) AS sla_breached,
+    -- New columns must stay at the end: CREATE OR REPLACE VIEW can only append.
+    fi.sla_breached_at,
+    fi.sla_actioned_at
    FROM flow_items fi
      JOIN flow_stages fs ON fs.id = fi.flow_stage_id
      LEFT JOIN crm_opportunities opp ON fi.object_type = 'NextDeveloper\CRM\Opportunities'::text AND opp.id = fi.object_id

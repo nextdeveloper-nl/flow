@@ -2,7 +2,9 @@
 
 namespace NextDeveloper\Flow\Services;
 
+use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use NextDeveloper\Commons\Database\Models\PusherLogs;
@@ -44,6 +46,16 @@ class ItemsService extends AbstractItemsService
         }
 
         $item = parent::create($data);
+
+        // Store when the item's SLA in its first stage runs out (see calculateSlaBreachedAt).
+        $slaBreachedAt = self::calculateSlaBreachedAt(
+            Stages::withoutGlobalScopes()->where('id', $item->flow_stage_id)->first(),
+            $item->last_stage_changed_at ?? $item->created_at
+        );
+
+        if ($slaBreachedAt) {
+            $item = parent::update($item->uuid, ['sla_breached_at' => $slaBreachedAt]);
+        }
 
         StageHistories::create([
             'flow_item_id'         => $item->id,
@@ -97,6 +109,9 @@ class ItemsService extends AbstractItemsService
                 $isStageMove                   = true;
                 $data['checklist_state']       = null;
                 $data['last_stage_changed_at'] = now();
+                // New stage visit: new SLA deadline, and no SLA action taken yet.
+                $data['sla_breached_at']       = self::calculateSlaBreachedAt($stage, $data['last_stage_changed_at']);
+                $data['sla_actioned_at']       = null;
             } else {
                 Log::info('[ItemsService::update] flow_stage_id unchanged — no stage move, automations will not fire.', [
                     'flow_item_id' => $item->uuid,
@@ -131,6 +146,107 @@ class ItemsService extends AbstractItemsService
         }
 
         return $model;
+    }
+
+    /**
+     * When the item's SLA in this stage runs out: entered + sla_days. It is stored
+     * at stage entry (and may be in the future), so "breached" is simply
+     * sla_breached_at <= now() — no scheduler needs to flip anything. NULL when the
+     * stage has no SLA or is a won/lost stage (same rules as the old view logic).
+     */
+    public static function calculateSlaBreachedAt(?Stages $stage, $enteredAt): ?Carbon
+    {
+        if (!$stage || $stage->sla_days === null || $stage->is_won || $stage->is_lost || !$enteredAt) {
+            return null;
+        }
+
+        return Carbon::parse($enteredAt)->addDays($stage->sla_days);
+    }
+
+    /**
+     * Recalculates sla_breached_at for every item in a stage. Needed when the
+     * stage's sla_days or won/lost flags change (see StagesService::update) and by
+     * the backfill. Returns the number of items updated.
+     */
+    public static function recalculateSlaBreachedAtForStage(Stages $stage): int
+    {
+        $query = Items::withoutGlobalScopes()
+            ->where('flow_stage_id', $stage->id)
+            ->whereNull('deleted_at');
+
+        if ($stage->deleted_at || $stage->sla_days === null || $stage->is_won || $stage->is_lost) {
+            return $query->update(['sla_breached_at' => null]);
+        }
+
+        // Same arithmetic as calculateSlaBreachedAt, done in bulk in the database.
+        return $query->whereNotNull('last_stage_changed_at')->update([
+            'sla_breached_at' => DB::raw('last_stage_changed_at + make_interval(days => ' . (int) $stage->sla_days . ')'),
+        ]);
+    }
+
+    /**
+     * One-off backfill for items that existed before sla_breached_at /
+     * sla_actioned_at were introduced (flow:backfill-sla-timestamps):
+     *   - sla_breached_at for every item, stage by stage
+     *   - sla_actioned_at from the newest SLA pusher log created during the item's
+     *     current stage visit, so items that were already notified are not
+     *     notified again right after the deploy
+     */
+    public static function backfillSlaTimestamps(): array
+    {
+        $stages = Stages::withoutGlobalScopes()->get();
+        $breachedAtUpdated = 0;
+
+        foreach ($stages as $stage) {
+            $breachedAtUpdated += self::recalculateSlaBreachedAtForStage($stage);
+        }
+
+        // Every pusher ever used by an SLA automation, including disabled ones.
+        $pusherIds = Automations::withoutGlobalScopes()
+            ->where('trigger', 'sla_breached')
+            ->whereNotNull('common_pusher_id')
+            ->pluck('common_pusher_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        // Newest SLA push per item, across its SLA pushers.
+        $lastPushAt = [];
+
+        foreach (self::getLastPushes($pusherIds) as $key => $push) {
+            $uuid = substr($key, strpos($key, ':') + 1);
+
+            if (!isset($lastPushAt[$uuid]) || $push['last_at']->gt($lastPushAt[$uuid])) {
+                $lastPushAt[$uuid] = $push['last_at'];
+            }
+        }
+
+        $actionedAtUpdated = 0;
+
+        foreach (array_chunk(array_keys($lastPushAt), 500) as $uuids) {
+            $items = Items::withoutGlobalScopes()
+                ->whereIn('uuid', $uuids)
+                ->whereNull('deleted_at')
+                ->whereNull('sla_actioned_at')
+                ->get(['id', 'uuid', 'last_stage_changed_at']);
+
+            foreach ($items as $item) {
+                $pushedAt = $lastPushAt[$item->uuid];
+
+                // Only a push from the current stage visit counts.
+                if ($item->last_stage_changed_at && $pushedAt->lt($item->last_stage_changed_at)) {
+                    continue;
+                }
+
+                Items::withoutGlobalScopes()->where('id', $item->id)->update(['sla_actioned_at' => $pushedAt]);
+                $actionedAtUpdated++;
+            }
+        }
+
+        return [
+            'sla_breached_at' => $breachedAtUpdated,
+            'sla_actioned_at' => $actionedAtUpdated,
+        ];
     }
 
     public static function delete($id)
@@ -347,15 +463,18 @@ class ItemsService extends AbstractItemsService
      * version (per-item automation query, per-item JSON scan of common_pusher_logs,
      * transformers and log writes) ran long enough to hold up the whole schedule:
      *   - automations are loaded first; ones whose only action is a missing or
-     *     disabled pusher are dropped, and only breached items in a pipeline/stage
-     *     covered by a remaining automation are loaded (from the view, one query)
+     *     disabled pusher are dropped, and only breached items (sla_breached_at
+     *     passed) in a pipeline/stage covered by a remaining automation are loaded
      *   - automations are matched to items in memory
-     *   - pending pusher logs are collected in one query
      *   - the heavy work (transform + pusher log + event) runs in the queued job
+     *
+     * Automations fire once per stage visit (sla_actioned_at), and again only after
+     * the pusher is changed by its owner (see slaAlreadyActioned), instead of every
+     * hour while the item stays breached.
      *
      * Returns a report per breached item for the command's output:
      *   [['item' => Items, 'stage' => Stages, 'automations' => [['automation' => Automations, 'status' => string]]]]
-     * Status is one of: dispatched, dry_run, skipped_pending.
+     * Status is one of: dispatched, dry_run, skipped_already_fired.
      */
     public static function checkSlaBreaches(bool $dryRun = false): array
     {
@@ -373,24 +492,21 @@ class ItemsService extends AbstractItemsService
         $pipelineIds = $automations->whereNull('flow_stage_id')->pluck('flow_pipeline_id')->unique()->values()->all();
         $stageIds    = $automations->whereNotNull('flow_stage_id')->pluck('flow_stage_id')->unique()->values()->all();
 
-        $breachedIds = ItemsPerspective::withoutGlobalScopes()
-            ->where('sla_breached', true)
+        // Breached = the stored deadline has passed (set at stage entry, see
+        // calculateSlaBreachedAt). Straight from flow_items — no view needed.
+        $items = Items::withoutGlobalScopes()
             ->whereNull('deleted_at')
+            ->whereNotNull('sla_breached_at')
+            ->where('sla_breached_at', '<=', now())
             ->where(function ($query) use ($pipelineIds, $stageIds) {
                 $query->whereIn('flow_pipeline_id', $pipelineIds ?: [0])
                       ->orWhereIn('flow_stage_id', $stageIds ?: [0]);
             })
-            ->pluck('id')
-            ->all();
+            ->get();
 
-        if (!$breachedIds) {
+        if ($items->isEmpty()) {
             return [];
         }
-
-        $items = Items::withoutGlobalScopes()
-            ->whereIn('id', $breachedIds)
-            ->whereNull('deleted_at')
-            ->get();
 
         // The view does not check stages.deleted_at; the old check skipped deleted stages.
         $stages = Stages::withoutGlobalScopes()
@@ -399,11 +515,16 @@ class ItemsService extends AbstractItemsService
             ->get()
             ->keyBy('id');
 
-        $pendingKeys = self::getPendingPushKeys(
-            $automations->pluck('common_pusher_id')->filter()->unique()->values()->all()
-        );
+        $pusherIds = $automations->pluck('common_pusher_id')->filter()->unique()->values()->all();
 
-        $report = [];
+        // When each pusher was last changed. Editing it (e.g. fixing its URL) or
+        // re-enabling it bumps updated_at, which gives its items a fresh try.
+        $pusherUpdatedAt = $pusherIds
+            ? Pushers::withoutGlobalScopes()->whereIn('id', $pusherIds)->get(['id', 'updated_at'])->keyBy('id')
+            : collect();
+
+        $report      = [];
+        $actionedIds = [];
 
         foreach ($items as $item) {
             $stage = $stages->get($item->flow_stage_id);
@@ -425,18 +546,19 @@ class ItemsService extends AbstractItemsService
             $entry = ['item' => $item, 'stage' => $stage, 'automations' => []];
 
             foreach ($matching as $automation) {
-                $hasPending = $automation->common_pusher_id
-                    && isset($pendingKeys[$automation->common_pusher_id . ':' . $item->uuid]);
+                $alreadyActioned = self::slaAlreadyActioned(
+                    $item,
+                    $automation->common_pusher_id ? $pusherUpdatedAt->get($automation->common_pusher_id)?->updated_at : null
+                );
 
-                if ($hasPending && !$automation->event_name) {
-                    // A previous push is still queued — firing again would only
-                    // duplicate it (see triggerPusherForAutomation).
-                    $status = 'skipped_pending';
+                if ($alreadyActioned) {
+                    $status = 'skipped_already_fired';
                 } elseif ($dryRun) {
                     $status = 'dry_run';
                 } else {
                     TriggerSlaBreachAutomationJob::dispatch($item->id, $automation->id, $item->flow_stage_id);
                     $status = 'dispatched';
+                    $actionedIds[$item->id] = true;
                 }
 
                 $entry['automations'][] = ['automation' => $automation, 'status' => $status];
@@ -445,7 +567,34 @@ class ItemsService extends AbstractItemsService
             $report[] = $entry;
         }
 
+        // Mark as actioned at dispatch time (not when the job runs), so the next
+        // hourly run does not queue the same item again while its job still waits.
+        foreach (array_chunk(array_keys($actionedIds), 1000) as $ids) {
+            Items::withoutGlobalScopes()->whereIn('id', $ids)->update(['sla_actioned_at' => now()]);
+        }
+
         return $report;
+    }
+
+    /**
+     * SLA automations fire once per stage visit: once sla_actioned_at is set (it is
+     * cleared on every stage move) they are not repeated every hour, whether the
+     * push succeeded or failed. The one exception: if the automation's pusher was
+     * changed by its owner after that (fixed URL, re-enabled — bumps updated_at),
+     * the item gets another try, since the previous attempt may have failed only
+     * because of the broken pusher.
+     */
+    private static function slaAlreadyActioned(Items $item, $pusherUpdatedAt): bool
+    {
+        if (!$item->sla_actioned_at) {
+            return false;
+        }
+
+        if ($pusherUpdatedAt && $pusherUpdatedAt->gt($item->sla_actioned_at)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -486,7 +635,7 @@ class ItemsService extends AbstractItemsService
      * TriggerSlaBreachAutomationJob; reloads everything so a job that waited in the
      * queue does not act on stale data.
      */
-    public static function fireSlaBreachAutomation(int $itemId, int $automationId, int $stageId): void
+    public static function fireSlaBreachAutomation(int $itemId, int $automationId, int $stageId, bool $firePusher = true): void
     {
         $item = Items::withoutGlobalScopes()
             ->where('id', $itemId)
@@ -513,7 +662,9 @@ class ItemsService extends AbstractItemsService
             return;
         }
 
-        if ($automation->common_pusher_id) {
+        // $firePusher is false when the push already ran for this stage visit and only
+        // the automation's event should fire.
+        if ($firePusher && $automation->common_pusher_id) {
             // Still checks for a pending log: two hourly runs can dispatch jobs for
             // the same item before either one has created its log.
             self::triggerPusherForAutomation($automation, $item);
@@ -525,10 +676,13 @@ class ItemsService extends AbstractItemsService
     }
 
     /**
-     * Returns "pusherId:itemUuid" keys for every pending pusher log of the given
-     * pushers, in a single query instead of one JSON scan per item.
+     * For every (pusher, item) pair of the given pushers: when the latest pusher log
+     * was created and whether one is still pending. One grouped query instead of one
+     * JSON scan per item. The item's uuid is stored as "id" in the pushed payload.
+     *
+     * @return array<string, array{last_at: \Carbon\Carbon, has_pending: bool}> keyed "pusherId:itemUuid"
      */
-    private static function getPendingPushKeys(array $commonPusherIds): array
+    private static function getLastPushes(array $commonPusherIds): array
     {
         if (!$commonPusherIds) {
             return [];
@@ -536,13 +690,17 @@ class ItemsService extends AbstractItemsService
 
         return PusherLogs::withoutGlobalScopes()
             ->whereIn('common_pusher_id', $commonPusherIds)
-            ->where('status', 'pending')
             ->whereNull('deleted_at')
-            ->select('common_pusher_id')
-            ->selectRaw("body->>'id' as flow_item_uuid")
+            ->selectRaw("common_pusher_id, body->>'id' as flow_item_uuid, max(created_at) as last_at, bool_or(status = 'pending') as has_pending")
+            ->groupByRaw("common_pusher_id, body->>'id'")
             ->toBase()
             ->get()
-            ->mapWithKeys(fn ($row) => [$row->common_pusher_id . ':' . $row->flow_item_uuid => true])
+            ->mapWithKeys(fn ($row) => [
+                $row->common_pusher_id . ':' . $row->flow_item_uuid => [
+                    'last_at'     => \Carbon\Carbon::parse($row->last_at),
+                    'has_pending' => (bool) $row->has_pending,
+                ],
+            ])
             ->all();
     }
 

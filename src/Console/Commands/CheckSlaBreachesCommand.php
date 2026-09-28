@@ -49,7 +49,7 @@ class CheckSlaBreachesCommand extends Command
         $label  = $dryRun ? '[DRY RUN] ' : '';
         $report = ItemsService::checkSlaBreaches($dryRun);
 
-        $counts = ['dispatched' => 0, 'dry_run' => 0, 'skipped_pending' => 0];
+        $counts = ['dispatched' => 0, 'dry_run' => 0, 'skipped_pending' => 0, 'skipped_already_fired' => 0];
 
         foreach ($report as $entry) {
             $item  = $entry['item'];
@@ -83,6 +83,7 @@ class CheckSlaBreachesCommand extends Command
             "{$label}Breached items: " . count($report)
             . " | dispatched: {$counts['dispatched']}"
             . " | skipped (pending push): {$counts['skipped_pending']}"
+            . " | skipped (already fired this stage visit): {$counts['skipped_already_fired']}"
             . ($dryRun ? " | would dispatch: {$counts['dry_run']}" : '')
         );
 
