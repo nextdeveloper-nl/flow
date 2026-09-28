@@ -4,25 +4,26 @@ namespace NextDeveloper\Flow\Console\Commands;
 
 use Illuminate\Console\Command;
 use NextDeveloper\IAM\Helpers\UserHelper;
-use NextDeveloper\Flow\Database\Models\Automations;
-use NextDeveloper\Flow\Database\Models\Items;
-use NextDeveloper\Flow\Database\Models\Stages;
 use NextDeveloper\Flow\Jobs\CheckSlaBreachesJob;
 use NextDeveloper\Flow\Services\ItemsService;
-use NextDeveloper\Events\Services\Events;
 
 /**
- * Manually runs the SLA breach check for testing purposes.
+ * Runs the SLA breach check.
+ *
+ * Breached items come from flow_items_perspective.sla_breached (same as the UI).
+ * The check itself is cheap; each matching automation is fired by a queued
+ * TriggerSlaBreachAutomationJob on the flow queue, so this command finishes
+ * quickly regardless of how many items are breached.
  *
  * Examples:
- *   php artisan flow:check-sla-breaches          (dispatches to queue)
- *   php artisan flow:check-sla-breaches --sync   (runs inline, fires automations)
- *   php artisan flow:check-sla-breaches --dry-run (diagnoses without firing automations)
+ *   php artisan flow:check-sla-breaches           (dispatches the whole check to the queue)
+ *   php artisan flow:check-sla-breaches --sync    (runs the check here, dispatches one job per automation)
+ *   php artisan flow:check-sla-breaches --dry-run (lists breached items and automations, dispatches nothing)
  */
 class CheckSlaBreachesCommand extends Command
 {
     protected $signature = 'flow:check-sla-breaches
-        {--sync    : Run synchronously in this process instead of dispatching to the queue}
+        {--sync    : Run the check in this process instead of dispatching it to the queue}
         {--dry-run : Show breached items and automations without firing anything}';
 
     protected $description = 'Check for SLA breaches across all active flow items and fire sla_breached automations';
@@ -31,10 +32,10 @@ class CheckSlaBreachesCommand extends Command
     {
         UserHelper::setAdminAsCurrentUser();
 
-        $dryRun = $this->option('dry-run');
+        $dryRun = (bool) $this->option('dry-run');
 
         if ($dryRun || $this->option('sync')) {
-            return $this->runDiagnostic($dryRun);
+            return $this->runCheck($dryRun);
         }
 
         CheckSlaBreachesJob::dispatch();
@@ -43,107 +44,47 @@ class CheckSlaBreachesCommand extends Command
         return self::SUCCESS;
     }
 
-    private function runDiagnostic(bool $dryRun): int
+    private function runCheck(bool $dryRun): int
     {
-        $label = $dryRun ? '[DRY RUN] ' : '';
+        $label  = $dryRun ? '[DRY RUN] ' : '';
+        $report = ItemsService::checkSlaBreaches($dryRun);
 
-        // Step 1: stages with SLA configured
-        $slaStages = Stages::withoutGlobalScopes()
-            ->whereNotNull('sla_days')
-            ->where('is_won', false)
-            ->where('is_lost', false)
-            ->whereNull('deleted_at')
-            ->get()
-            ->keyBy('id');
+        $counts = ['dispatched' => 0, 'dry_run' => 0, 'skipped_pending' => 0];
 
-        $this->info("{$label}Stages with SLA configured: " . $slaStages->count());
+        foreach ($report as $entry) {
+            $item  = $entry['item'];
+            $stage = $entry['stage'];
+            $hours = round($item->last_stage_changed_at->diffInMinutes(now()) / 60, 1);
 
-        if ($slaStages->isEmpty()) {
-            $this->warn('No stages have sla_days set — nothing to check.');
-            return self::SUCCESS;
-        }
-
-        foreach ($slaStages as $stage) {
-            $this->line("  Stage [{$stage->uuid}] \"{$stage->name}\" — sla_days: {$stage->sla_days}");
-        }
-
-        // Step 2: items sitting in those stages
-        $items = Items::withoutGlobalScopes()
-            ->whereIn('flow_stage_id', $slaStages->keys())
-            ->whereNotNull('last_stage_changed_at')
-            ->whereNull('deleted_at')
-            ->get();
-
-        $this->info("{$label}Active items in SLA stages: " . $items->count());
-
-        if ($items->isEmpty()) {
-            $this->warn('No active items found in any SLA-configured stage.');
-            return self::SUCCESS;
-        }
-
-        // Step 3: evaluate each item.
-        // Breach status comes from flow_items_perspective.sla_breached (what the UI
-        // shows) — the old (int) diffInDays rule fired up to a day after the UI did.
-        $breachedIds   = ItemsService::getSlaBreachedItemIds();
-        $breachedCount = 0;
-
-        foreach ($items as $item) {
-            $stage       = $slaStages->get($item->flow_stage_id);
-            $hoursInStage = round($item->last_stage_changed_at->diffInMinutes(now()) / 60, 1);
-            $breached     = isset($breachedIds[$item->id]);
-
-            $status = $breached ? '<fg=red>BREACHED</>' : '<fg=green>OK</>';
             $this->line(
                 "  Item [{$item->uuid}] stage \"{$stage->name}\" — "
-                . "{$hoursInStage}h in stage / {$stage->sla_days}d SLA — {$status}"
+                . "{$hours}h in stage / {$stage->sla_days}d SLA — <fg=red>BREACHED</>"
             );
 
-            if (!$breached) {
-                continue;
-            }
-
-            $breachedCount++;
-
-            $automations = Automations::withoutGlobalScopes()
-                ->where('flow_pipeline_id', $item->flow_pipeline_id)
-                ->where('trigger', 'sla_breached')
-                ->where('is_active', true)
-                ->whereNull('deleted_at')
-                ->where(function ($q) use ($item) {
-                    $q->whereNull('flow_stage_id')
-                      ->orWhere('flow_stage_id', $item->flow_stage_id);
-                })
-                ->get();
-
-            if ($automations->isEmpty()) {
+            if (!$entry['automations']) {
                 $this->line('    No sla_breached automations configured for this pipeline/stage.');
                 continue;
             }
 
-            foreach ($automations as $automation) {
+            foreach ($entry['automations'] as $row) {
+                $automation = $row['automation'];
+                $counts[$row['status']]++;
+
                 $this->line(
                     "    Automation [{$automation->uuid}] \"{$automation->name}\" "
                     . "— pusher: " . ($automation->common_pusher_id ?? 'none')
                     . ", event: " . ($automation->event_name ?? 'none')
+                    . " — {$row['status']}"
                 );
-
-                if (!$dryRun) {
-                    if ($automation->common_pusher_id) {
-                        ItemsService::triggerPusherForAutomation($automation, $item);
-                    }
-
-                    if ($automation->event_name) {
-                        Events::fire($automation->event_name, $item);
-                    }
-                }
             }
         }
 
-        $this->info("{$label}Breached items: {$breachedCount} / " . $items->count());
-
-        if (!$dryRun && $breachedCount > 0) {
-            $this->info('Automations fired for all breached items.');
-        }
+        $this->info(
+            "{$label}Breached items: " . count($report)
+            . " | dispatched: {$counts['dispatched']}"
+            . " | skipped (pending push): {$counts['skipped_pending']}"
+            . ($dryRun ? " | would dispatch: {$counts['dry_run']}" : '')
+        );
 
         return self::SUCCESS;
     }

@@ -16,6 +16,7 @@ use NextDeveloper\Flow\Database\Models\ItemsPerspective;
 use NextDeveloper\Flow\Database\Models\StageHistories;
 use NextDeveloper\Flow\Database\Models\StageRequiredColumns;
 use NextDeveloper\Flow\Database\Models\Stages;
+use NextDeveloper\Flow\Jobs\TriggerSlaBreachAutomationJob;
 use NextDeveloper\Flow\Services\AbstractServices\AbstractItemsService;
 use NextDeveloper\IAM\Helpers\UserHelper;
 
@@ -332,6 +333,160 @@ class ItemsService extends AbstractItemsService
             ->whereNull('deleted_at')
             ->pluck('id')
             ->flip()
+            ->all();
+    }
+
+    /**
+     * Finds SLA-breached items and dispatches one TriggerSlaBreachAutomationJob per
+     * matching (item, automation) pair. Used by flow:check-sla-breaches and
+     * CheckSlaBreachesJob.
+     *
+     * Kept cheap on purpose — it runs inside the hourly scheduler, and the old inline
+     * version (per-item automation query, per-item JSON scan of common_pusher_logs,
+     * transformers and log writes) ran long enough to hold up the whole schedule:
+     *   - breached items come from the view in one query, and only those are loaded
+     *   - automations are loaded once and matched in memory
+     *   - pending pusher logs are collected in one query
+     *   - the heavy work (transform + pusher log + event) runs in the queued job
+     *
+     * Returns a report per breached item for the command's output:
+     *   [['item' => Items, 'stage' => Stages, 'automations' => [['automation' => Automations, 'status' => string]]]]
+     * Status is one of: dispatched, dry_run, skipped_pending.
+     */
+    public static function checkSlaBreaches(bool $dryRun = false): array
+    {
+        $breachedIds = array_keys(self::getSlaBreachedItemIds());
+
+        if (!$breachedIds) {
+            return [];
+        }
+
+        $items = Items::withoutGlobalScopes()
+            ->whereIn('id', $breachedIds)
+            ->whereNull('deleted_at')
+            ->get();
+
+        // The view does not check stages.deleted_at; the old check skipped deleted stages.
+        $stages = Stages::withoutGlobalScopes()
+            ->whereIn('id', $items->pluck('flow_stage_id')->unique()->values())
+            ->whereNull('deleted_at')
+            ->get()
+            ->keyBy('id');
+
+        $automations = Automations::withoutGlobalScopes()
+            ->whereIn('flow_pipeline_id', $items->pluck('flow_pipeline_id')->unique()->values())
+            ->where('trigger', 'sla_breached')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->get();
+
+        $pendingKeys = self::getPendingPushKeys(
+            $automations->pluck('common_pusher_id')->filter()->unique()->values()->all()
+        );
+
+        $report = [];
+
+        foreach ($items as $item) {
+            $stage = $stages->get($item->flow_stage_id);
+
+            if (!$stage) {
+                continue;
+            }
+
+            // Same matching as before: pipeline-wide (no stage) or this item's stage.
+            $matching = $automations->filter(function ($automation) use ($item) {
+                return $automation->flow_pipeline_id === $item->flow_pipeline_id
+                    && ($automation->flow_stage_id === null || $automation->flow_stage_id === $item->flow_stage_id);
+            });
+
+            $entry = ['item' => $item, 'stage' => $stage, 'automations' => []];
+
+            foreach ($matching as $automation) {
+                $hasPending = $automation->common_pusher_id
+                    && isset($pendingKeys[$automation->common_pusher_id . ':' . $item->uuid]);
+
+                if ($hasPending && !$automation->event_name) {
+                    // A previous push is still queued — firing again would only
+                    // duplicate it (see triggerPusherForAutomation).
+                    $status = 'skipped_pending';
+                } elseif ($dryRun) {
+                    $status = 'dry_run';
+                } else {
+                    TriggerSlaBreachAutomationJob::dispatch($item->id, $automation->id, $item->flow_stage_id);
+                    $status = 'dispatched';
+                }
+
+                $entry['automations'][] = ['automation' => $automation, 'status' => $status];
+            }
+
+            $report[] = $entry;
+        }
+
+        return $report;
+    }
+
+    /**
+     * Fires one sla_breached automation for one item. Called by
+     * TriggerSlaBreachAutomationJob; reloads everything so a job that waited in the
+     * queue does not act on stale data.
+     */
+    public static function fireSlaBreachAutomation(int $itemId, int $automationId, int $stageId): void
+    {
+        $item = Items::withoutGlobalScopes()
+            ->where('id', $itemId)
+            ->whereNull('deleted_at')
+            ->first();
+
+        // The item may have been deleted or moved while the job was queued.
+        if (!$item || $item->flow_stage_id !== $stageId) {
+            Log::info('[Flow] Skipping SLA automation — item deleted or left the breached stage.', [
+                'flow_item_id'       => $itemId,
+                'flow_automation_id' => $automationId,
+            ]);
+
+            return;
+        }
+
+        $automation = Automations::withoutGlobalScopes()
+            ->where('id', $automationId)
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$automation) {
+            return;
+        }
+
+        if ($automation->common_pusher_id) {
+            // Still checks for a pending log: two hourly runs can dispatch jobs for
+            // the same item before either one has created its log.
+            self::triggerPusherForAutomation($automation, $item);
+        }
+
+        if ($automation->event_name) {
+            Events::fire($automation->event_name, $item);
+        }
+    }
+
+    /**
+     * Returns "pusherId:itemUuid" keys for every pending pusher log of the given
+     * pushers, in a single query instead of one JSON scan per item.
+     */
+    private static function getPendingPushKeys(array $commonPusherIds): array
+    {
+        if (!$commonPusherIds) {
+            return [];
+        }
+
+        return PusherLogs::withoutGlobalScopes()
+            ->whereIn('common_pusher_id', $commonPusherIds)
+            ->where('status', 'pending')
+            ->whereNull('deleted_at')
+            ->select('common_pusher_id')
+            ->selectRaw("body->>'id' as flow_item_uuid")
+            ->toBase()
+            ->get()
+            ->mapWithKeys(fn ($row) => [$row->common_pusher_id . ':' . $row->flow_item_uuid => true])
             ->all();
     }
 
