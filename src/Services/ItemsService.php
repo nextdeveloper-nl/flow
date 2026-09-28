@@ -2,9 +2,11 @@
 
 namespace NextDeveloper\Flow\Services;
 
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use NextDeveloper\Commons\Database\Models\PusherLogs;
+use NextDeveloper\Commons\Database\Models\Pushers;
 use NextDeveloper\Commons\Exceptions\NotAllowedException;
 use NextDeveloper\Commons\Services\PushersService;
 use NextDeveloper\Events\Services\Events;
@@ -344,8 +346,10 @@ class ItemsService extends AbstractItemsService
      * Kept cheap on purpose — it runs inside the hourly scheduler, and the old inline
      * version (per-item automation query, per-item JSON scan of common_pusher_logs,
      * transformers and log writes) ran long enough to hold up the whole schedule:
-     *   - breached items come from the view in one query, and only those are loaded
-     *   - automations are loaded once and matched in memory
+     *   - automations are loaded first; ones whose only action is a missing or
+     *     disabled pusher are dropped, and only breached items in a pipeline/stage
+     *     covered by a remaining automation are loaded (from the view, one query)
+     *   - automations are matched to items in memory
      *   - pending pusher logs are collected in one query
      *   - the heavy work (transform + pusher log + event) runs in the queued job
      *
@@ -355,7 +359,29 @@ class ItemsService extends AbstractItemsService
      */
     public static function checkSlaBreaches(bool $dryRun = false): array
     {
-        $breachedIds = array_keys(self::getSlaBreachedItemIds());
+        // Start from the automations, not the items: only items an automation could
+        // actually act on are worth loading. Most breached items have no SLA
+        // automation at all, and some point at a disabled pusher.
+        $automations = self::getActionableSlaAutomations();
+
+        if ($automations->isEmpty()) {
+            return [];
+        }
+
+        // Pipeline-wide automations (no stage) cover every stage of their pipeline;
+        // the rest cover only their own stage.
+        $pipelineIds = $automations->whereNull('flow_stage_id')->pluck('flow_pipeline_id')->unique()->values()->all();
+        $stageIds    = $automations->whereNotNull('flow_stage_id')->pluck('flow_stage_id')->unique()->values()->all();
+
+        $breachedIds = ItemsPerspective::withoutGlobalScopes()
+            ->where('sla_breached', true)
+            ->whereNull('deleted_at')
+            ->where(function ($query) use ($pipelineIds, $stageIds) {
+                $query->whereIn('flow_pipeline_id', $pipelineIds ?: [0])
+                      ->orWhereIn('flow_stage_id', $stageIds ?: [0]);
+            })
+            ->pluck('id')
+            ->all();
 
         if (!$breachedIds) {
             return [];
@@ -372,13 +398,6 @@ class ItemsService extends AbstractItemsService
             ->whereNull('deleted_at')
             ->get()
             ->keyBy('id');
-
-        $automations = Automations::withoutGlobalScopes()
-            ->whereIn('flow_pipeline_id', $items->pluck('flow_pipeline_id')->unique()->values())
-            ->where('trigger', 'sla_breached')
-            ->where('is_active', true)
-            ->whereNull('deleted_at')
-            ->get();
 
         $pendingKeys = self::getPendingPushKeys(
             $automations->pluck('common_pusher_id')->filter()->unique()->values()->all()
@@ -398,6 +417,10 @@ class ItemsService extends AbstractItemsService
                 return $automation->flow_pipeline_id === $item->flow_pipeline_id
                     && ($automation->flow_stage_id === null || $automation->flow_stage_id === $item->flow_stage_id);
             });
+
+            if ($matching->isEmpty()) {
+                continue;
+            }
 
             $entry = ['item' => $item, 'stage' => $stage, 'automations' => []];
 
@@ -423,6 +446,39 @@ class ItemsService extends AbstractItemsService
         }
 
         return $report;
+    }
+
+    /**
+     * Active sla_breached automations that can actually do something: they fire an
+     * event, or they push through a pusher that exists, has a URL and is not
+     * disabled. An automation whose only action is a disabled pusher is skipped —
+     * PushersService::trigger() would drop the push anyway.
+     */
+    private static function getActionableSlaAutomations(): Collection
+    {
+        $automations = Automations::withoutGlobalScopes()
+            ->where('trigger', 'sla_breached')
+            ->where('is_active', true)
+            ->whereNull('deleted_at')
+            ->get();
+
+        $pusherIds = $automations->pluck('common_pusher_id')->filter()->unique()->values()->all();
+
+        $usablePusherIds = $pusherIds
+            ? Pushers::withoutGlobalScopes()
+                ->whereIn('id', $pusherIds)
+                ->whereNull('deleted_at')
+                ->whereNotNull('url')
+                ->where('status', '!=', 'disabled')
+                ->pluck('id')
+                ->flip()
+                ->all()
+            : [];
+
+        return $automations->filter(function ($automation) use ($usablePusherIds) {
+            return $automation->event_name
+                || ($automation->common_pusher_id && isset($usablePusherIds[$automation->common_pusher_id]));
+        })->values();
     }
 
     /**
