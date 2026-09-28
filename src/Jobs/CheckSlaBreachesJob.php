@@ -12,6 +12,8 @@ use NextDeveloper\Flow\Database\Models\Stages;
 use NextDeveloper\Flow\Database\Models\Automations;
 use NextDeveloper\Events\Services\Events;
 use NextDeveloper\Flow\Services\ItemsService;
+// Was missing — handle() calls UserHelper::setAdminAsCurrentUser(), so the queued path crashed with "class not found".
+use NextDeveloper\IAM\Helpers\UserHelper;
 
 /**
  * Detects items that have exceeded their stage SLA and fires sla_breached automations.

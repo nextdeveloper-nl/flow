@@ -62,6 +62,17 @@ class FlowStagePusher extends AbstractPusher
             return PusherResult::fail(422, 'Missing flow_item_id or flow_stage_id in payload.');
         }
 
+        // The log may have waited in the queue long after it was created. If the item
+        // has already left the stage captured in the payload, this move is stale.
+        if (ItemsService::hasLeftStage($itemUuid, $body['flow_stage_id'] ?? null)) {
+            Log::info('[FlowStagePusher] Item already left the payload stage — skipping stale push.', [
+                'pusher_log_id' => $log->id,
+                'flow_item_id'  => $itemUuid,
+            ]);
+
+            return PusherResult::ok(200, 'Skipped: item already left the stage this push was created for: ' . $itemUuid);
+        }
+
         Log::info('[FlowStagePusher] Updating flow item stage.', [
             'pusher_log_id' => $log->id,
             'flow_item_id'  => $itemUuid,

@@ -4,6 +4,7 @@ namespace NextDeveloper\Flow\Services;
 
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use NextDeveloper\Commons\Database\Models\PusherLogs;
 use NextDeveloper\Commons\Exceptions\NotAllowedException;
 use NextDeveloper\Commons\Services\PushersService;
 use NextDeveloper\Events\Services\Events;
@@ -293,9 +294,72 @@ class ItemsService extends AbstractItemsService
         Events::fire('item_stage_changed:NextDeveloper\Flow\Items', $item);
     }
 
+    /**
+     * Used by the hourly SLA breach check. The check re-fires every hour while the
+     * item is still in the breached stage, so when the pushers queue lags, each run
+     * used to queue another pusher log for the same item — and once the queue caught
+     * up, every one of them sent the email again. We now skip the trigger while a
+     * previous log for the same pusher + item is still waiting to be executed.
+     */
     public static function triggerPusherForAutomation(Automations $automation, Items $item): void
     {
+        if (self::hasPendingPush($automation->common_pusher_id, $item)) {
+            Log::info('[Flow] Skipping pusher trigger — a pending push already exists for this item.', [
+                'flow_automation_id' => $automation->id,
+                'common_pusher_id'   => $automation->common_pusher_id,
+                'flow_item_id'       => $item->uuid,
+            ]);
+
+            return;
+        }
+
         self::triggerPusher($automation, $item);
+    }
+
+    /**
+     * Returns true when a pusher log for the given pusher and item has not been
+     * executed yet. The item's uuid is stored as "id" in the pushed payload
+     * (see triggerPusher / transformObject).
+     */
+    private static function hasPendingPush(int $commonPusherId, Items $item): bool
+    {
+        return PusherLogs::withoutGlobalScopes()
+            ->where('common_pusher_id', $commonPusherId)
+            ->where('status', 'pending')
+            ->whereNull('deleted_at')
+            ->where('body->id', $item->uuid)
+            ->exists();
+    }
+
+    /**
+     * Returns true when the item is no longer in the stage captured in a pusher
+     * payload (or no longer exists). Pusher logs are executed asynchronously and can
+     * run long after they were created; pushers call this before acting so a stale
+     * log does not repeat an action (e.g. an email) for an item that already moved.
+     *
+     * When the payload carries no stage, there is nothing to compare, so the log is
+     * treated as current.
+     */
+    public static function hasLeftStage(string $itemUuid, ?string $snapshotStageUuid): bool
+    {
+        if (empty($snapshotStageUuid)) {
+            return false;
+        }
+
+        $item = Items::withoutGlobalScopes()
+            ->where('uuid', $itemUuid)
+            ->whereNull('deleted_at')
+            ->first();
+
+        if (!$item) {
+            return true;
+        }
+
+        $currentStageUuid = Stages::withoutGlobalScopes()
+            ->where('id', $item->flow_stage_id)
+            ->value('uuid');
+
+        return $currentStageUuid !== $snapshotStageUuid;
     }
 
     private static function triggerPusher(Automations $automation, Items $item): void
