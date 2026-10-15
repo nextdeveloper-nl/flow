@@ -168,6 +168,21 @@ class PipelinesController extends AbstractController
     }
 
     /**
+     * Returns the whole board payload (pipeline, stages, all items with owners, campaign) in one
+     * call. The work and the Redis snapshot live in PipelinesService::board(); ?refresh=1 rebuilds it.
+     *
+     * @param  Request $request
+     * @param  string  $pipelinesId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function board(Request $request, $pipelinesId)
+    {
+        $data = PipelinesService::board($pipelinesId, $request->boolean('refresh'));
+
+        return ResponsableFactory::makeResponse($this, $data);
+    }
+
+    /**
      * Creates a new pipeline + ordered stages from a config-defined template.
      *
      * @param  Request $request

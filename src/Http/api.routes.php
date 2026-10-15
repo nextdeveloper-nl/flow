@@ -8,6 +8,9 @@ Route::prefix('pipelines')->group(
         Route::get('/templates', 'Pipelines\PipelinesController@templates');
         Route::post('/from-template', 'Pipelines\PipelinesController@createFromTemplate');
 
+        // Single-call payload for the pipeline board page (must stay above the wildcard routes below).
+        Route::get('/{flow_pipelines}/board', 'Pipelines\PipelinesController@board');
+
         Route::get('{flow_pipelines}/tags ', 'Pipelines\PipelinesController@tags');
         Route::post('{flow_pipelines}/tags ', 'Pipelines\PipelinesController@saveTags');
         Route::get('{flow_pipelines}/addresses ', 'Pipelines\PipelinesController@addresses');

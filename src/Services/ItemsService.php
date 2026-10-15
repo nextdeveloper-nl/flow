@@ -68,6 +68,9 @@ class ItemsService extends AbstractItemsService
 
         self::fireAutomations($item, null, $item->flow_stage_id, 'item_created');
 
+        // A new item changes the board: drop the cached board snapshots of its pipeline.
+        PipelinesService::invalidateBoardByPipelineId($item->flow_pipeline_id);
+
         return $item;
     }
 
@@ -144,6 +147,9 @@ class ItemsService extends AbstractItemsService
             self::fireAutomations($model, $oldStageId, $newStageId, 'item_moved');
             self::notifyWatchers($model);
         }
+
+        // Any item change (stage move, position, checklist...) alters the board: drop its snapshots.
+        PipelinesService::invalidateBoardByPipelineId($model->flow_pipeline_id);
 
         return $model;
     }
@@ -257,7 +263,14 @@ class ItemsService extends AbstractItemsService
             self::fireAutomations($item, $item->flow_stage_id, null, 'item_deleted');
         }
 
-        return parent::delete($id);
+        $result = parent::delete($id);
+
+        // The item left the board: drop the cached board snapshots of its pipeline.
+        if ($item) {
+            PipelinesService::invalidateBoardByPipelineId($item->flow_pipeline_id);
+        }
+
+        return $result;
     }
 
     public static function restore(Items $item): Items
@@ -275,6 +288,9 @@ class ItemsService extends AbstractItemsService
         ]);
 
         self::fireAutomations($item, null, $item->flow_stage_id, 'item_created');
+
+        // The item is back on the board: drop the cached board snapshots of its pipeline.
+        PipelinesService::invalidateBoardByPipelineId($item->flow_pipeline_id);
 
         return $item;
     }

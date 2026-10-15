@@ -2,6 +2,7 @@
 
 namespace NextDeveloper\Flow\Services;
 
+use NextDeveloper\Flow\Database\Models\Stages;
 use NextDeveloper\Flow\Services\AbstractServices\AbstractStagesService;
 
 /**
@@ -33,6 +34,37 @@ class StagesService extends AbstractStagesService
             ItemsService::recalculateSlaBreachedAtForStage($model);
         }
 
+        // Stage name/color/position/SLA changes alter the board: drop the cached board snapshots.
+        PipelinesService::invalidateBoardByPipelineId($model->flow_pipeline_id);
+
         return $model;
+    }
+
+    /**
+     * Creates the stage and drops the cached board snapshots of its pipeline.
+     */
+    public static function create(array $data)
+    {
+        $model = parent::create($data);
+
+        PipelinesService::invalidateBoardByPipelineId($model->flow_pipeline_id);
+
+        return $model;
+    }
+
+    /**
+     * Deletes the stage and drops the cached board snapshots of its pipeline.
+     */
+    public static function delete($id)
+    {
+        $stage = Stages::withoutGlobalScopes()->where('uuid', $id)->first();
+
+        $result = parent::delete($id);
+
+        if ($stage) {
+            PipelinesService::invalidateBoardByPipelineId($stage->flow_pipeline_id);
+        }
+
+        return $result;
     }
 }

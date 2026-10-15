@@ -6,6 +6,7 @@ use NextDeveloper\Commons\AbstractServiceProvider;
 use NextDeveloper\Commons\Pushers\PusherFactory;
 use NextDeveloper\Flow\Console\Commands\BackfillSlaTimestampsCommand;
 use NextDeveloper\Flow\Console\Commands\CheckSlaBreachesCommand;
+use NextDeveloper\Flow\Console\Commands\RebuildBoardCommand;
 use NextDeveloper\Flow\Pushers\Drivers\FlowStagePusher;
 
 /**
@@ -106,6 +107,7 @@ class FlowServiceProvider extends AbstractServiceProvider {
             $this->commands([
                 CheckSlaBreachesCommand::class,
                 BackfillSlaTimestampsCommand::class,
+                RebuildBoardCommand::class,
             ]);
         }
     }
