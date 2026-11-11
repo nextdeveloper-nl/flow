@@ -4,9 +4,11 @@ namespace NextDeveloper\Flow\Services;
 
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use NextDeveloper\Commons\Common\Cache\CacheHelper;
 use NextDeveloper\Commons\Database\Models\PusherLogs;
 use NextDeveloper\Commons\Database\Models\Pushers;
 use NextDeveloper\Commons\Exceptions\NotAllowedException;
@@ -47,11 +49,15 @@ class ItemsService extends AbstractItemsService
 
         $item = parent::create($data);
 
+        $stage = Stages::withoutGlobalScopes()->where('id', $item->flow_stage_id)->first();
+
         // Store when the item's SLA in its first stage runs out (see calculateSlaBreachedAt).
         $slaBreachedAt = self::calculateSlaBreachedAt(
-            Stages::withoutGlobalScopes()->where('id', $item->flow_stage_id)->first(),
+            $stage,
             $item->last_stage_changed_at ?? $item->created_at
         );
+
+        self::syncObjectProbability($item, $stage);
 
         if ($slaBreachedAt) {
             $item = parent::update($item->uuid, ['sla_breached_at' => $slaBreachedAt]);
@@ -133,6 +139,8 @@ class ItemsService extends AbstractItemsService
         ]);
 
         if ($isStageMove) {
+            self::syncObjectProbability($model, $stage);
+
             StageHistories::create([
                 'flow_item_id'         => $model->id,
                 'flow_pipeline_id'     => $model->flow_pipeline_id,
@@ -188,6 +196,135 @@ class ItemsService extends AbstractItemsService
         return $query->whereNotNull('last_stage_changed_at')->update([
             'sla_breached_at' => DB::raw('last_stage_changed_at + make_interval(days => ' . (int) $stage->sla_days . ')'),
         ]);
+    }
+
+    /**
+     * Copies the stage's probability onto the item's linked object (e.g. a CRM
+     * opportunity) when that object has a probability field, so a deal shows the
+     * win probability its pipeline stage defines. Called whenever an item enters a
+     * stage (create, move, restore). Written with a query update so the object's
+     * observers and authorization checks do not block this system-side sync.
+     */
+    public static function syncObjectProbability(Items $item, ?Stages $stage = null): void
+    {
+        $stage ??= Stages::withoutGlobalScopes()->where('id', $item->flow_stage_id)->first();
+
+        if (!$stage || $stage->probability === null || !$item->object_type || !$item->object_id) {
+            return;
+        }
+
+        $modelClass = self::probabilityModelClass($item->object_type);
+
+        if (!$modelClass) {
+            return;
+        }
+
+        $object = $modelClass::withoutGlobalScopes()
+            ->where('id', $item->object_id)
+            ->whereRaw('probability IS DISTINCT FROM ?', [$stage->probability])
+            ->first(['id', 'uuid']);
+
+        if (!$object) {
+            return;
+        }
+
+        $modelClass::withoutGlobalScopes()
+            ->where('id', $object->id)
+            ->update(['probability' => $stage->probability]);
+
+        // The query update skips the model events that normally clear the cached transformer output.
+        CacheHelper::deleteKeys(class_basename($modelClass), $object->uuid);
+    }
+
+    /**
+     * Applies the stage's probability to the linked objects of every item currently
+     * in the stage. Only objects still on the 0 default or on the stage's previous
+     * probability are updated, so a probability set by hand on a deal is kept.
+     * Used when a stage's probability changes and by flow:sync-stage-probabilities.
+     * Returns the number of objects updated.
+     */
+    public static function syncObjectProbabilityForStage(Stages $stage, ?int $previousProbability = null): int
+    {
+        if ($stage->probability === null || $stage->deleted_at) {
+            return 0;
+        }
+
+        $replaceableProbabilities = array_values(array_unique(array_filter(
+            [0, $previousProbability],
+            fn ($probability) => $probability !== null && (int) $probability !== (int) $stage->probability
+        )));
+
+        if (!$replaceableProbabilities) {
+            return 0;
+        }
+
+        $objectTypes = Items::withoutGlobalScopes()
+            ->where('flow_stage_id', $stage->id)
+            ->whereNull('deleted_at')
+            ->distinct()
+            ->pluck('object_type');
+
+        $updated = 0;
+
+        foreach ($objectTypes as $objectType) {
+            $modelClass = $objectType ? self::probabilityModelClass($objectType) : null;
+
+            if (!$modelClass) {
+                continue;
+            }
+
+            $objectIds = Items::withoutGlobalScopes()
+                ->select('object_id')
+                ->where('flow_stage_id', $stage->id)
+                ->where('object_type', $objectType)
+                ->whereNull('deleted_at');
+
+            $modelClass::withoutGlobalScopes()
+                ->select(['id', 'uuid'])
+                ->whereIn('id', $objectIds)
+                ->whereIn('probability', $replaceableProbabilities)
+                ->chunkById(1000, function ($objects) use ($modelClass, $stage, &$updated) {
+                    $updated += $modelClass::withoutGlobalScopes()
+                        ->whereIn('id', $objects->pluck('id'))
+                        ->update(['probability' => $stage->probability]);
+
+                    self::forgetTransformedCache($modelClass, $objects->pluck('uuid'));
+                });
+        }
+
+        return $updated;
+    }
+
+    /**
+     * Forgets the cached transformer output of the given objects and their perspectives.
+     * Query-builder updates skip the model events that normally do this (CleanCache), so
+     * without it the API keeps serving the old values until the cache entry expires.
+     */
+    private static function forgetTransformedCache(string $modelClass, iterable $uuids): void
+    {
+        $shortName = class_basename($modelClass);
+
+        foreach ($uuids as $uuid) {
+            Cache::forget(CacheHelper::getKey($shortName, $uuid, CacheHelper::TRANSFORMED));
+            Cache::forget(CacheHelper::getKey($shortName . 'Perspective', $uuid, CacheHelper::TRANSFORMED));
+        }
+    }
+
+    /**
+     * Returns the model class behind a short object_type (e.g. NextDeveloper\CRM\Opportunities)
+     * when that model has a fillable probability field, otherwise null.
+     */
+    private static function probabilityModelClass(string $objectType): ?string
+    {
+        $parts      = array_values(array_filter(explode('\\', $objectType)));
+        $className  = array_pop($parts);
+        $modelClass = '\\' . implode('\\', $parts) . '\\Database\\Models\\' . $className;
+
+        if (!class_exists($modelClass) || !in_array('probability', (new $modelClass())->getFillable(), true)) {
+            return null;
+        }
+
+        return $modelClass;
     }
 
     /**
@@ -277,6 +414,8 @@ class ItemsService extends AbstractItemsService
     {
         $item->restore();
         $item = $item->fresh();
+
+        self::syncObjectProbability($item);
 
         StageHistories::create([
             'flow_item_id'         => $item->id,
