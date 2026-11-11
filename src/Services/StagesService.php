@@ -28,10 +28,19 @@ class StagesService extends AbstractStagesService
         $slaFields = ['sla_days', 'is_won', 'is_lost'];
         $affectsSla = (bool) array_intersect($slaFields, array_keys($data));
 
+        $previousProbability = array_key_exists('probability', $data)
+            ? Stages::withoutGlobalScopes()->where('uuid', $id)->value('probability')
+            : null;
+        $previousProbability = $previousProbability === null ? null : (int) $previousProbability;
+
         $model = parent::update($id, $data);
 
         if ($affectsSla) {
             ItemsService::recalculateSlaBreachedAtForStage($model);
+        }
+
+        if (array_key_exists('probability', $data) && $previousProbability !== $model->probability) {
+            ItemsService::syncObjectProbabilityForStage($model, $previousProbability);
         }
 
         // Stage name/color/position/SLA changes alter the board: drop the cached board snapshots.
