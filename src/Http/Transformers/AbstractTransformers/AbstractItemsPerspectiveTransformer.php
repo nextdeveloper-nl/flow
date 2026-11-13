@@ -83,6 +83,10 @@ class AbstractItemsPerspectiveTransformer extends AbstractTransformer
             'object_subtitle'  =>  $model->object_subtitle,
             'object_value'  =>  $model->object_value,
             'sla_breached'  =>  $model->sla_breached,
+            'owner_name'  =>  $model->owner_name,
+            'owner_email'  =>  $model->owner_email,
+            'owner_id'  =>  $model->owner_uuid,
+            'object_quote_amount'  =>  $model->object_quote_amount,
             ]
         );
     }
