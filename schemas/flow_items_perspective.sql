@@ -43,7 +43,18 @@ SELECT fi.id,
         COALESCE(fi.sla_breached_at <= now(), false) AS sla_breached,
     -- New columns must stay at the end: CREATE OR REPLACE VIEW can only append.
     fi.sla_breached_at,
-    fi.sla_actioned_at
+    fi.sla_actioned_at,
+    -- Owner of the item for the board avatar and the table Owner columns: the opportunity's owner for an
+    -- opportunity item, the item's own user for everything else.
+    ou.fullname AS owner_name,
+    ou.email AS owner_email,
+    ou.uuid AS owner_uuid,
+    -- Latest non-deleted quote total of the opportunity (the board value is the quote total, object_value stays the
+    -- deal size); NULL for items that are not opportunities.
+    CASE fi.object_type
+        WHEN 'NextDeveloper\CRM\Opportunities'::text THEN COALESCE(lq.total_amount, 0)
+        ELSE NULL::numeric
+    END AS object_quote_amount
    FROM flow_items fi
      JOIN flow_stages fs ON fs.id = fi.flow_stage_id
      LEFT JOIN crm_opportunities opp ON fi.object_type = 'NextDeveloper\CRM\Opportunities'::text AND opp.id = fi.object_id
@@ -54,4 +65,10 @@ SELECT fi.id,
      LEFT JOIN support_tickets st ON fi.object_type = 'NextDeveloper\Support\Tickets'::text AND st.id = fi.object_id
      LEFT JOIN iam_accounts ia_st ON fi.object_type = 'NextDeveloper\Support\Tickets'::text AND ia_st.id = st.iam_account_id
      LEFT JOIN iaas_virtual_machines vm ON fi.object_type = 'NextDeveloper\IAAS\VirtualMachines'::text AND vm.id = fi.object_id
+     LEFT JOIN iam_users ou ON ou.id = CASE WHEN fi.object_type = 'NextDeveloper\CRM\Opportunities'::text THEN opp.iam_user_id ELSE fi.iam_user_id END
+     LEFT JOIN ( SELECT DISTINCT ON (crm_quotes.crm_opportunity_id) crm_quotes.crm_opportunity_id,
+            crm_quotes.total_amount
+           FROM crm_quotes
+          WHERE crm_quotes.deleted_at IS NULL
+          ORDER BY crm_quotes.crm_opportunity_id, crm_quotes.created_at DESC) lq ON fi.object_type = 'NextDeveloper\CRM\Opportunities'::text AND lq.crm_opportunity_id = fi.object_id
   WHERE fi.deleted_at IS NULL;
