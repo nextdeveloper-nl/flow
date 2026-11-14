@@ -2,7 +2,12 @@
 
 namespace NextDeveloper\Flow\Services;
 
+use Illuminate\Support\Facades\DB;
+use NextDeveloper\Commons\Exceptions\NotAllowedException;
+use NextDeveloper\Flow\Database\Models\Columns;
+use NextDeveloper\Flow\Database\Models\StageRequiredColumns;
 use NextDeveloper\Flow\Database\Models\Stages;
+use NextDeveloper\IAM\Helpers\UserHelper;
 use NextDeveloper\Flow\Services\AbstractServices\AbstractStagesService;
 
 /**
@@ -16,6 +21,77 @@ class StagesService extends AbstractStagesService
 {
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
+    /**
+     * The fields a card must have filled before it can enter this stage (leo4#1243).
+     *
+     * @return array<int, string> Column uuids.
+     */
+    public static function requiredColumnUuids(string $stageUuid): array
+    {
+        $stage = self::findStageOrFail($stageUuid);
+
+        return Columns::withoutGlobalScopes()
+            ->whereIn('id', StageRequiredColumns::withoutGlobalScopes()->where('flow_stage_id', $stage->id)->select('flow_column_id'))
+            ->orderBy('position')
+            ->pluck('uuid')
+            ->all();
+    }
+
+    /**
+     * Replaces the stage's required fields with the given columns of the same pipeline (leo4#1243).
+     *
+     * @param  array<int, string>  $columnUuids
+     * @return array<int, string> Column uuids now required.
+     */
+    public static function syncRequiredColumns(string $stageUuid, array $columnUuids): array
+    {
+        $stage = self::findStageOrFail($stageUuid);
+
+        throw_if(
+            !UserHelper::can('update', $stage),
+            new NotAllowedException('You are not allowed to change this stage.')
+        );
+
+        $columnIds = Columns::withoutGlobalScopes()
+            ->where('flow_pipeline_id', $stage->flow_pipeline_id)
+            ->whereIn('uuid', array_values(array_unique($columnUuids)))
+            ->pluck('id');
+
+        if ($columnIds->count() !== count(array_unique($columnUuids))) {
+            throw new NotAllowedException('Some of these fields do not belong to this pipeline.');
+        }
+
+        DB::transaction(function () use ($stage, $columnIds) {
+            StageRequiredColumns::withoutGlobalScopes()
+                ->where('flow_stage_id', $stage->id)
+                ->whereNotIn('flow_column_id', $columnIds)
+                ->delete();
+
+            $existing = StageRequiredColumns::withoutGlobalScopes()
+                ->where('flow_stage_id', $stage->id)
+                ->pluck('flow_column_id');
+
+            foreach ($columnIds->diff($existing) as $columnId) {
+                StageRequiredColumns::create(['flow_stage_id' => $stage->id, 'flow_column_id' => $columnId]);
+            }
+        });
+
+        PipelinesService::invalidateBoardByPipelineId($stage->flow_pipeline_id);
+
+        return self::requiredColumnUuids($stageUuid);
+    }
+
+    private static function findStageOrFail(string $stageUuid): Stages
+    {
+        $stage = Stages::where('uuid', $stageUuid)->first();
+
+        if (!$stage) {
+            throw new NotAllowedException('We cannot find this stage.');
+        }
+
+        return $stage;
+    }
 
     /**
      * Updates the stage. flow_items.sla_breached_at is stored per item at stage

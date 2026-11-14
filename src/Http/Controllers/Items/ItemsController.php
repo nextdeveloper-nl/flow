@@ -154,4 +154,21 @@ class ItemsController extends AbstractController
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
+    /**
+     * Links a card to a record: { object_type, object_id (uuid) } (leo4#1243).
+     */
+    public function link(\NextDeveloper\Flow\Http\Requests\Items\ItemsLinkRequest $request, $itemsId)
+    {
+        $data = $request->validated();
+
+        return ResponsableFactory::makeResponse($this, ItemsService::linkObject($itemsId, $data['object_type'], $data['object_id']));
+    }
+
+    /**
+     * Detaches the record from a card on a custom pipeline (leo4#1243).
+     */
+    public function unlink($itemsId)
+    {
+        return ResponsableFactory::makeResponse($this, ItemsService::unlinkObject($itemsId));
+    }
 }

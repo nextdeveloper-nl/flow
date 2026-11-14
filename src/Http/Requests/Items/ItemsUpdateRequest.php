@@ -17,6 +17,7 @@ class ItemsUpdateRequest extends AbstractFormRequest
         'flow_stage_id' => 'nullable|exists:flow_stages,uuid|uuid',
         'object_type' => 'nullable|string',
         'object_id' => 'nullable',
+        'title' => 'nullable|string|max:255',
         'position' => 'integer',
         'last_stage_changed_at' => 'date',
         'checklist_state' => 'nullable',

@@ -154,4 +154,20 @@ class StagesController extends AbstractController
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
+    /**
+     * Fields a card needs before entering this stage: { data: [column uuid] } (leo4#1243).
+     */
+    public function requiredColumns($stagesId)
+    {
+        return ResponsableFactory::makeResponse($this, StagesService::requiredColumnUuids($stagesId));
+    }
+
+    /**
+     * Replaces the stage's required fields: { flow_column_ids: [column uuid] } (leo4#1243).
+     */
+    public function syncRequiredColumns(\NextDeveloper\Flow\Http\Requests\Stages\StagesRequiredColumnsRequest $request, $stagesId)
+    {
+        return ResponsableFactory::makeResponse($this, StagesService::syncRequiredColumns($stagesId, $request->validated()['flow_column_ids'] ?? []));
+    }
+
 }

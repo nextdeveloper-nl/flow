@@ -1,5 +1,8 @@
 -- PostgreSQL
 -- VIEW (read-only; re-run this file with CREATE OR REPLACE VIEW whenever the SELECT needs to change)
+-- New columns must stay at the end: CREATE OR REPLACE VIEW can only append.
+-- 2026-11-14: rebuilt from the live definition (the file had fallen behind: owner_name, owner_email,
+-- owner_uuid and object_quote_amount were only in the database), plus task names and title cards.
 
 CREATE OR REPLACE VIEW flow_items_perspective AS
 SELECT fi.id,
@@ -24,7 +27,9 @@ SELECT fi.id,
             WHEN 'NextDeveloper\CRM\Accounts'::text THEN ia_crm.name
             WHEN 'NextDeveloper\Support\Tickets'::text THEN st.title
             WHEN 'NextDeveloper\IAAS\VirtualMachines'::text THEN vm.name
-            ELSE fi.object_id::text
+            WHEN 'NextDeveloper\CRM\Tasks'::text THEN task.name
+            -- Cards without an object (custom pipelines, leo4#1243) show their title.
+            ELSE COALESCE(fi.title, fi.object_id::text)
         END AS object_name,
         CASE fi.object_type
             WHEN 'NextDeveloper\CRM\Opportunities'::text THEN ia_opp.name
@@ -37,13 +42,17 @@ SELECT fi.id,
             WHEN 'NextDeveloper\CRM\Opportunities'::text THEN opp.income
             ELSE NULL::numeric
         END AS object_value,
-        -- flow_items.sla_breached_at is stored at stage entry (entered + sla_days,
-        -- NULL for stages without SLA or won/lost), so the UI and the hourly SLA check
-        -- (ItemsService::checkSlaBreaches) use exactly the same deadline.
-        COALESCE(fi.sla_breached_at <= now(), false) AS sla_breached,
-    -- New columns must stay at the end: CREATE OR REPLACE VIEW can only append.
+    COALESCE(fi.sla_breached_at <= now(), false) AS sla_breached,
     fi.sla_breached_at,
-    fi.sla_actioned_at
+    fi.sla_actioned_at,
+    ou.fullname AS owner_name,
+    ou.email AS owner_email,
+    ou.uuid AS owner_uuid,
+        CASE fi.object_type
+            WHEN 'NextDeveloper\CRM\Opportunities'::text THEN COALESCE(lq.total_amount, 0::numeric)
+            ELSE NULL::numeric
+        END AS object_quote_amount,
+    fi.title
    FROM flow_items fi
      JOIN flow_stages fs ON fs.id = fi.flow_stage_id
      LEFT JOIN crm_opportunities opp ON fi.object_type = 'NextDeveloper\CRM\Opportunities'::text AND opp.id = fi.object_id
@@ -54,4 +63,15 @@ SELECT fi.id,
      LEFT JOIN support_tickets st ON fi.object_type = 'NextDeveloper\Support\Tickets'::text AND st.id = fi.object_id
      LEFT JOIN iam_accounts ia_st ON fi.object_type = 'NextDeveloper\Support\Tickets'::text AND ia_st.id = st.iam_account_id
      LEFT JOIN iaas_virtual_machines vm ON fi.object_type = 'NextDeveloper\IAAS\VirtualMachines'::text AND vm.id = fi.object_id
+     LEFT JOIN iam_users ou ON ou.id =
+        CASE
+            WHEN fi.object_type = 'NextDeveloper\CRM\Opportunities'::text THEN opp.iam_user_id
+            ELSE fi.iam_user_id
+        END
+     LEFT JOIN ( SELECT DISTINCT ON (crm_quotes.crm_opportunity_id) crm_quotes.crm_opportunity_id,
+            crm_quotes.total_amount
+           FROM crm_quotes
+          WHERE crm_quotes.deleted_at IS NULL
+          ORDER BY crm_quotes.crm_opportunity_id, crm_quotes.created_at DESC) lq ON fi.object_type = 'NextDeveloper\CRM\Opportunities'::text AND lq.crm_opportunity_id = fi.object_id
+     LEFT JOIN crm_tasks task ON fi.object_type = 'NextDeveloper\CRM\Tasks'::text AND task.id = fi.object_id
   WHERE fi.deleted_at IS NULL;

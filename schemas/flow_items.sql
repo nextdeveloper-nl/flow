@@ -6,8 +6,8 @@ CREATE TABLE flow_items (
     uuid                   uuid NOT NULL DEFAULT gen_random_uuid(),
     flow_pipeline_id       bigint NOT NULL,
     flow_stage_id          bigint NOT NULL,
-    object_type            text NOT NULL, -- The type of the linked object, e.g. crm_opportunity, support_ticket.
-    object_id              bigint NOT NULL, -- The id of the linked object.
+    object_type            text, -- The type of the linked object, e.g. crm_opportunity, support_ticket.
+    object_id              bigint, -- The id of the linked object.
     position               integer NOT NULL DEFAULT 0, -- Kanban sort order within the stage.
     last_stage_changed_at  timestamp with time zone NOT NULL DEFAULT now(), -- Timestamp of the last stage transition. Used with flow_stages.sla_days to detect stale items.
     checklist_state        json, -- Completion state for the current stage checklist. Map of {key: {completed, completed_by, completed_at}}.
@@ -19,6 +19,8 @@ CREATE TABLE flow_items (
     CONSTRAINT flow_items_flow_pipeline_id_fkey FOREIGN KEY (flow_pipeline_id) REFERENCES flow_pipelines(id) ON DELETE CASCADE,
     CONSTRAINT flow_items_flow_stage_id_fkey FOREIGN KEY (flow_stage_id) REFERENCES flow_stages(id),
     CONSTRAINT flow_items_pkey PRIMARY KEY (id),
+    CONSTRAINT flow_items_object_pair_check CHECK ((object_type IS NULL) = (object_id IS NULL)),
+    CONSTRAINT flow_items_object_or_title_check CHECK (object_id IS NOT NULL OR (title IS NOT NULL AND btrim(title) <> '')),
     CONSTRAINT flow_items_flow_pipeline_id_object_type_object_id_key UNIQUE (flow_pipeline_id, object_type, object_id)
 );
 

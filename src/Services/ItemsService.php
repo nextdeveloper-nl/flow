@@ -45,11 +45,27 @@ class ItemsService extends AbstractItemsService
      */
     public static function create(array $data)
     {
+        $values = $data['values'] ?? [];
+        unset($data['values']);
+
         if (!empty($data['object_id']) && !empty($data['object_type']) && Str::isUuid($data['object_id'])) {
             $data['object_id'] = self::resolveObjectId($data['object_type'], $data['object_id']);
         }
 
-        $item = parent::create($data);
+        // A card without an object (leo4#1243): custom pipelines only, and it needs a title.
+        if (empty($data['object_id'])) {
+            unset($data['object_type'], $data['object_id']);
+            self::assertObjectlessAllowed($data['flow_pipeline_id'] ?? null, $data['title'] ?? null);
+            $data['title'] = trim($data['title']);
+        }
+
+        $item = DB::transaction(function () use ($data, $values) {
+            $item = parent::create($data);
+
+            self::saveValues($item, $values);
+
+            return $item;
+        });
 
         $stage = Stages::withoutGlobalScopes()->where('id', $item->flow_stage_id)->first();
 
@@ -209,6 +225,106 @@ class ItemsService extends AbstractItemsService
      * stage (create, move, restore). Written with a query update so the object's
      * observers and authorization checks do not block this system-side sync.
      */
+    /**
+     * Object-less cards exist only on custom pipelines and always have a title.
+     */
+    private static function assertObjectlessAllowed($pipelineRef, ?string $title): void
+    {
+        $pipeline = $pipelineRef === null ? null : \NextDeveloper\Flow\Database\Models\Pipelines::withoutGlobalScopes()
+            ->where(is_numeric($pipelineRef) ? 'id' : 'uuid', $pipelineRef)
+            ->first();
+
+        if (!$pipeline || $pipeline->kind !== 'custom') {
+            throw new NotAllowedException('Only cards on a custom pipeline can be created without a linked record.');
+        }
+
+        if ($title === null || trim($title) === '') {
+            throw new NotAllowedException('Give the card a title.');
+        }
+    }
+
+    /**
+     * @param  array<int, array{flow_column_id: string, value?: mixed}>  $values
+     */
+    private static function saveValues(Items $item, array $values): void
+    {
+        foreach ($values as $entry) {
+            $column = \NextDeveloper\Flow\Database\Models\Columns::withoutGlobalScopes()
+                ->where('uuid', $entry['flow_column_id'] ?? null)
+                ->where('flow_pipeline_id', $item->flow_pipeline_id)
+                ->first();
+
+            if (!$column) {
+                throw new NotAllowedException('A field does not belong to this pipeline.');
+            }
+
+            ItemValuesService::saveValue($item, $column, $entry['value'] ?? null);
+        }
+    }
+
+    /**
+     * Links a card to a record (leo4#1243). The record is resolved and authorized as on create,
+     * and a record can sit on a pipeline only once.
+     */
+    public static function linkObject(string $itemUuid, string $objectType, string $objectUuid): Items
+    {
+        $item = Items::where('uuid', $itemUuid)->first();
+
+        if (!$item) {
+            throw new NotAllowedException('We cannot find this card.');
+        }
+
+        $objectId = self::resolveObjectId($objectType, $objectUuid);
+
+        $taken = Items::withoutGlobalScopes()
+            ->where('flow_pipeline_id', $item->flow_pipeline_id)
+            ->where('object_type', $objectType)
+            ->where('object_id', $objectId)
+            ->where('id', '<>', $item->id)
+            ->exists();
+
+        if ($taken) {
+            throw new NotAllowedException('This record is already on another card of this pipeline.');
+        }
+
+        $item->update(['object_type' => $objectType, 'object_id' => $objectId]);
+
+        PipelinesService::invalidateBoardByPipelineId($item->flow_pipeline_id);
+
+        return $item->fresh();
+    }
+
+    /**
+     * Detaches the record from a card on a custom pipeline. The card keeps a title (the record's
+     * name if it had none), so it stays readable on the board.
+     */
+    public static function unlinkObject(string $itemUuid): Items
+    {
+        $item = Items::where('uuid', $itemUuid)->first();
+
+        if (!$item) {
+            throw new NotAllowedException('We cannot find this card.');
+        }
+
+        if (!$item->object_id) {
+            return $item;
+        }
+
+        $title = $item->title;
+
+        if ($title === null || trim($title) === '') {
+            $title = ItemsPerspective::withoutGlobalScopes()->where('id', $item->id)->value('object_name') ?: 'Card';
+        }
+
+        self::assertObjectlessAllowed($item->flow_pipeline_id, $title);
+
+        $item->update(['object_type' => null, 'object_id' => null, 'title' => $title]);
+
+        PipelinesService::invalidateBoardByPipelineId($item->flow_pipeline_id);
+
+        return $item->fresh();
+    }
+
     /**
      * Creates a CRM task and its card on a project board together (leo4#1242): both rows or
      * neither. The task goes to the given stage or the pipeline's first one. The assignee
@@ -628,15 +744,21 @@ class ItemsService extends AbstractItemsService
             ->where('flow_item_id', $item->id)
             ->whereIn('flow_column_id', $requiredColumnIds)
             ->whereNotNull('value')
+            ->where('value', '<>', '')
+            ->where('value', '<>', '[]')
             ->pluck('flow_column_id');
 
         $missing = $requiredColumnIds->diff($filledColumnIds);
 
         if ($missing->isNotEmpty()) {
-            throw new NotAllowedException(
-                'Cannot move to this stage. Missing required column values for column IDs: ' .
-                $missing->implode(', ')
-            );
+            $labels = \NextDeveloper\Flow\Database\Models\Columns::withoutGlobalScopes()
+                ->whereIn('id', $missing)
+                ->orderBy('position')
+                ->get(['label', 'name'])
+                ->map(fn ($column) => $column->label ?: $column->name)
+                ->implode(', ');
+
+            throw new NotAllowedException('Fill in ' . $labels . ' before moving the card to this stage.');
         }
     }
 
@@ -1049,7 +1171,10 @@ class ItemsService extends AbstractItemsService
 
     private static function triggerPusher(Automations $automation, Items $item): void
     {
-        $object = self::resolveObject($item->object_type, $item->object_id);
+        // Cards without an object (custom pipelines) push only the item itself.
+        $object = $item->object_type && $item->object_id
+            ? self::resolveObject($item->object_type, $item->object_id)
+            : null;
 
         $payload = array_merge(
             $automation->payload_template ?? [],
