@@ -35,6 +35,10 @@ Route::prefix('stages')->group(
         Route::get('/', 'Stages\StagesController@index');
         Route::get('/actions', 'Stages\StagesController@getActions');
 
+        // Fields a card needs before entering the stage (leo4#1243).
+        Route::get('/{flow_stages}/required-columns', 'Stages\StagesController@requiredColumns');
+        Route::post('/{flow_stages}/required-columns', 'Stages\StagesController@syncRequiredColumns');
+
         Route::get('{flow_stages}/tags ', 'Stages\StagesController@tags');
         Route::post('{flow_stages}/tags ', 'Stages\StagesController@saveTags');
         Route::get('{flow_stages}/addresses ', 'Stages\StagesController@addresses');
