@@ -6,7 +6,9 @@ use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use NextDeveloper\Commons\Common\Cache\CacheHelper;
 use NextDeveloper\Commons\Database\Models\PusherLogs;
@@ -912,7 +914,7 @@ class ItemsService extends AbstractItemsService
         $payload = array_merge(
             $automation->payload_template ?? [],
             self::transformObject($item),
-            ['object' => $object ? self::transformObject($object) : null]
+            ['object' => $object ? self::withForeignKeyUuids($object, self::transformObject($object)) : null]
         );
 
         try {
@@ -940,6 +942,88 @@ class ItemsService extends AbstractItemsService
         }
 
         return $object->toArray();
+    }
+
+    /**
+     * Transformers turn foreign keys into uuids with scoped lookups, so whoever (or
+     * whatever job) moved the item decides whether e.g. crm_account_id survives.
+     * In a job or for a user who can't see the related row it comes back null,
+     * and pushers then fail on data that is in the DB (leo4#1257). Fill those nulls
+     * from the raw column, without scopes, using the `<module>_<object>_id` →
+     * `<module>_<objects>` table convention.
+     *
+     * @param  array<string, mixed>  $transformed
+     * @return array<string, mixed>
+     */
+    public static function withForeignKeyUuids(object $model, array $transformed): array
+    {
+        if (!$model instanceof Model) {
+            return $transformed;
+        }
+
+        foreach ($model->getAttributes() as $column => $rawId) {
+            if (
+                !str_ends_with($column, '_id')
+                || !is_numeric($rawId)
+                || !array_key_exists($column, $transformed)
+                || $transformed[$column] !== null
+            ) {
+                continue;
+            }
+
+            $table = self::foreignKeyTable($column);
+
+            if (!$table) {
+                continue;
+            }
+
+            $uuid = DB::table($table)->where('id', $rawId)->value('uuid');
+
+            if ($uuid) {
+                $transformed[$column] = $uuid;
+            }
+        }
+
+        return $transformed;
+    }
+
+    /**
+     * crm_account_id → crm_accounts, common_currency_id → common_currencies.
+     * Null when no such table with a uuid column exists, checked up front so a
+     * bad guess never runs a failing query (that would abort a surrounding
+     * Postgres transaction).
+     */
+    public static function foreignKeyTable(string $column): ?string
+    {
+        static $tables = [];
+
+        if (array_key_exists($column, $tables)) {
+            return $tables[$column];
+        }
+
+        $table = self::guessForeignKeyTable($column);
+
+        return $tables[$column] = ($table && Schema::hasTable($table) && Schema::hasColumn($table, 'uuid')) ? $table : null;
+    }
+
+    /**
+     * The table name a `<module>_<object>_id` column points to, by convention only.
+     */
+    public static function guessForeignKeyTable(string $column): ?string
+    {
+        if (!str_ends_with($column, '_id')) {
+            return null;
+        }
+
+        $parts = explode('_', Str::beforeLast($column, '_id'));
+
+        if (count($parts) < 2) {
+            return null;
+        }
+
+        $parts[] = Str::plural(array_pop($parts));
+
+        return implode('_', $parts);
     }
 
     private static function resolveObject(string $objectType, int $id): ?object
