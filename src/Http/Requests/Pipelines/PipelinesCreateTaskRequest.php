@@ -23,6 +23,13 @@ class PipelinesCreateTaskRequest extends AbstractFormRequest
             'assignee_id' => 'nullable|uuid|exists:iam_users,uuid',
             'crm_account_id' => 'nullable|uuid|exists:crm_accounts,uuid',
             'flow_stage_id' => 'nullable|uuid|exists:flow_stages,uuid',
+            // Gantt schedule (leo4#1245).
+            'start_date' => 'nullable|date',
+            'progress' => 'nullable|integer|between:0,100',
+            'is_milestone' => 'nullable|boolean',
+            'estimated_hours' => 'nullable|numeric|min:0',
+            // The parent task; it must already be on this pipeline.
+            'parent_id' => 'nullable|uuid|exists:crm_tasks,uuid',
         ];
     }
 
@@ -35,6 +42,8 @@ class PipelinesCreateTaskRequest extends AbstractFormRequest
             'name.required' => 'Give the task a name.',
             'due_date.date' => 'The due date is not a valid date.',
             'priority.between' => 'The priority must be 1 (low), 2 (medium) or 3 (high).',
+            'start_date.date' => 'The start date is not a valid date.',
+            'progress.between' => 'Progress goes from 0 to 100.',
         ];
     }
 }

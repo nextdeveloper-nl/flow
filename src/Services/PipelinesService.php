@@ -420,7 +420,12 @@ class PipelinesService extends AbstractPipelinesService
 
         $tasks = Tasks::withoutGlobalScope(LimitScope::class)
             ->whereIn('id', $taskIds)
-            ->get(['id', 'uuid', 'name', 'description', 'due_date', 'priority', 'iam_user_id', 'is_finished', 'is_delayed']);
+            ->get(['id', 'uuid', 'name', 'description', 'due_date', 'priority', 'iam_user_id', 'is_finished', 'is_delayed',
+                'start_date', 'progress', 'crm_task_id', 'is_milestone', 'estimated_hours']);
+
+        $parentUuids = Tasks::withoutGlobalScopes()
+            ->whereIn('id', $tasks->pluck('crm_task_id')->filter()->unique()->values())
+            ->pluck('uuid', 'id');
 
         $assignees = Users::withoutGlobalScopes()
             ->whereIn('id', $tasks->pluck('iam_user_id')->filter()->unique()->values())
@@ -440,6 +445,11 @@ class PipelinesService extends AbstractPipelinesService
                 'priority'    => $task->priority,
                 'is_finished' => (bool) $task->is_finished,
                 'is_delayed'  => (bool) $task->is_delayed,
+                'start_date'      => $task->start_date?->toIso8601String(),
+                'progress'        => (int) $task->progress,
+                'parent_id'       => $task->crm_task_id ? $parentUuids->get($task->crm_task_id) : null,
+                'is_milestone'    => (bool) $task->is_milestone,
+                'estimated_hours' => $task->estimated_hours,
                 'assignee'    => $assignee ? [
                     'id'       => $assignee->uuid,
                     'fullname' => trim($assignee->name.' '.$assignee->surname) ?: $assignee->email,
@@ -711,5 +721,129 @@ class PipelinesService extends AbstractPipelinesService
         $model->restore();
 
         return $model->fresh();
+    }
+
+    /**
+     * The Gantt view of a project pipeline (leo4#1245): every task card with its schedule, stage
+     * and assignee, in tree order (a parent, then its subtasks), plus the links between them.
+     * A parent's dates and progress are the stored roll-up of its subtasks (see TaskScheduleService).
+     * Tasks without both dates come back with is_scheduled = false so the panel can list them.
+     *
+     * @return array{pipeline: array<string, mixed>, stages: array<int, array<string, mixed>>,
+     *               tasks: array<int, array<string, mixed>>, dependencies: array<int, array<string, mixed>>}
+     */
+    public static function gantt(string $pipelineUuid): array
+    {
+        // Scoped fetch: a pipeline the user can not see is never returned.
+        $pipeline = Pipelines::where('uuid', $pipelineUuid)->first();
+
+        if (!$pipeline) {
+            throw new NotAllowedException('We cannot find this pipeline.');
+        }
+
+        if ($pipeline->kind !== 'project') {
+            throw new NotAllowedException('The Gantt view is only for project pipelines.');
+        }
+
+        $stages = Stages::withoutGlobalScopes()
+            ->where('flow_pipeline_id', $pipeline->id)
+            ->whereNull('deleted_at')
+            ->orderBy('position')
+            ->get(['id', 'uuid', 'name', 'color', 'is_won', 'is_lost', 'position']);
+
+        $items = \NextDeveloper\Flow\Database\Models\Items::withoutGlobalScopes()
+            ->where('flow_pipeline_id', $pipeline->id)
+            ->where('object_type', self::BOARD_TASK_TYPE)
+            ->whereNull('deleted_at')
+            ->get(['id', 'uuid', 'flow_stage_id', 'object_id'])
+            ->keyBy('object_id');
+
+        // Tasks the user may not see stay out (AuthorizationScope); the page size limit does not apply.
+        $tasks = Tasks::withoutGlobalScope(LimitScope::class)
+            ->whereIn('id', $items->keys())
+            ->get(['id', 'uuid', 'name', 'start_date', 'due_date', 'progress', 'crm_task_id', 'is_milestone',
+                'sort_order', 'estimated_hours', 'priority', 'is_finished', 'is_delayed', 'iam_user_id'])
+            ->keyBy('id');
+
+        $assignees = Users::withoutGlobalScopes()
+            ->whereIn('id', $tasks->pluck('iam_user_id')->filter()->unique()->values())
+            ->get(['id', 'uuid', 'name', 'surname', 'email'])
+            ->keyBy('id');
+
+        $stageUuids = $stages->pluck('uuid', 'id');
+        $childrenOf = [];
+
+        foreach ($tasks as $task) {
+            // A parent outside this pipeline (or hidden) makes the task top level here.
+            $parentKey = $task->crm_task_id && $tasks->has($task->crm_task_id) ? $task->crm_task_id : 0;
+            $childrenOf[$parentKey][] = $task;
+        }
+
+        foreach ($childrenOf as &$siblings) {
+            usort($siblings, fn ($a, $b) => [$a->sort_order, $a->start_date?->getTimestamp() ?? PHP_INT_MAX, $a->name]
+                <=> [$b->sort_order, $b->start_date?->getTimestamp() ?? PHP_INT_MAX, $b->name]);
+        }
+        unset($siblings);
+
+        $rows = [];
+        $walk = function (int $parentKey, int $depth) use (&$walk, &$rows, $childrenOf, $tasks, $items, $assignees, $stageUuids) {
+            foreach ($childrenOf[$parentKey] ?? [] as $task) {
+                $item = $items->get($task->id);
+                $assignee = $assignees->get($task->iam_user_id);
+
+                $rows[] = [
+                    'id'              => $task->uuid,
+                    'item_id'         => $item?->uuid,
+                    'name'            => $task->name,
+                    'start_date'      => $task->start_date?->toIso8601String(),
+                    'due_date'        => $task->due_date?->toIso8601String(),
+                    'is_scheduled'    => $task->start_date !== null && $task->due_date !== null,
+                    'progress'        => (int) $task->progress,
+                    'is_milestone'    => (bool) $task->is_milestone,
+                    'sort_order'      => (int) $task->sort_order,
+                    'estimated_hours' => $task->estimated_hours,
+                    'priority'        => $task->priority,
+                    'is_finished'     => (bool) $task->is_finished,
+                    'is_delayed'      => (bool) $task->is_delayed,
+                    'parent_id'       => $parentKey ? $tasks->get($parentKey)?->uuid : null,
+                    'depth'           => $depth,
+                    'has_subtasks'    => !empty($childrenOf[$task->id]),
+                    'stage_id'        => $item ? $stageUuids->get($item->flow_stage_id) : null,
+                    'assignee'        => $assignee ? [
+                        'id'       => $assignee->uuid,
+                        'fullname' => trim($assignee->name.' '.$assignee->surname) ?: $assignee->email,
+                    ] : null,
+                ];
+
+                if ($depth < 20) {
+                    $walk($task->id, $depth + 1);
+                }
+            }
+        };
+        $walk(0, 0);
+
+        $uuidById = $tasks->pluck('uuid', 'id');
+
+        $dependencies = \NextDeveloper\CRM\Services\TaskScheduleService::dependenciesAmong($tasks->keys()->all())
+            ->map(fn ($link) => [
+                'id'             => $link->uuid,
+                'predecessor_id' => $uuidById->get($link->predecessor_task_id),
+                'successor_id'   => $uuidById->get($link->successor_task_id),
+                'type'           => $link->type,
+                'lag_days'       => $link->lag_days,
+            ])->values()->all();
+
+        return [
+            'pipeline'     => ['id' => $pipeline->uuid, 'name' => $pipeline->name, 'kind' => $pipeline->kind],
+            'stages'       => $stages->map(fn ($stage) => [
+                'id'      => $stage->uuid,
+                'name'    => $stage->name,
+                'color'   => $stage->color,
+                'is_won'  => (bool) $stage->is_won,
+                'is_lost' => (bool) $stage->is_lost,
+            ])->values()->all(),
+            'tasks'        => $rows,
+            'dependencies' => $dependencies,
+        ];
     }
 }

@@ -331,8 +331,13 @@ class ItemsService extends AbstractItemsService
      * defaults to the current user and must be a member of the current account; a CRM
      * account is optional.
      *
+     * Schedule fields (leo4#1245): start_date, progress, is_milestone, estimated_hours and
+     * parent_id, a task that must already be on this pipeline; the subtask is a card too.
+     *
      * @param  array{name: string, description?: ?string, due_date?: ?string, priority?: ?int,
-     *               assignee_id?: ?string, crm_account_id?: ?string, flow_stage_id?: ?string}  $data
+     *               assignee_id?: ?string, crm_account_id?: ?string, flow_stage_id?: ?string,
+     *               start_date?: ?string, progress?: ?int, is_milestone?: ?bool,
+     *               estimated_hours?: ?float, parent_id?: ?string}  $data
      */
     public static function createTaskItem(string $pipelineUuid, array $data): Items
     {
@@ -362,6 +367,29 @@ class ItemsService extends AbstractItemsService
             'due_date'    => $data['due_date'] ?? null,
             'priority'    => $data['priority'] ?? null,
         ];
+
+        foreach (['start_date', 'progress', 'is_milestone', 'estimated_hours'] as $field) {
+            if (array_key_exists($field, $data) && $data[$field] !== null) {
+                $task[$field] = $data[$field];
+            }
+        }
+
+        if (!empty($data['parent_id'])) {
+            $parentId = DB::table('crm_tasks')->where('uuid', $data['parent_id'])->value('id');
+
+            $parentOnBoard = $parentId && DB::table('flow_items')
+                ->where('flow_pipeline_id', $pipeline->id)
+                ->where('object_type', PipelinesService::BOARD_TASK_TYPE)
+                ->where('object_id', $parentId)
+                ->whereNull('deleted_at')
+                ->exists();
+
+            if (!$parentOnBoard) {
+                throw new NotAllowedException('The parent task is not on this project.');
+            }
+
+            $task['crm_task_id'] = $data['parent_id'];
+        }
 
         if (!empty($data['assignee_id'])) {
             $assigneeId = DB::table('iam_users')->where('uuid', $data['assignee_id'])->value('id');
@@ -412,16 +440,32 @@ class ItemsService extends AbstractItemsService
             return;
         }
 
-        $uuid = DB::table('crm_tasks')->where('id', $item->object_id)->value('uuid');
+        $task = DB::table('crm_tasks')->where('id', $item->object_id)->first(['uuid', 'progress', 'crm_task_id']);
 
-        DB::table('crm_tasks')
-            ->where('id', $item->object_id)
-            ->update(['is_finished' => (bool) $stage->is_won, 'is_delayed' => false, 'updated_at' => now()]);
+        if (!$task) {
+            return;
+        }
+
+        $changes = ['is_finished' => (bool) $stage->is_won, 'is_delayed' => false, 'updated_at' => now()];
+
+        // A won stage means done: 100%. Leaving it undoes that, unless the task's progress follows
+        // its subtasks (leo4#1245).
+        $hasSubtasks = \NextDeveloper\CRM\Services\TaskScheduleService::hasSubtasks($item->object_id);
+
+        if (!$hasSubtasks) {
+            if ($stage->is_won) {
+                $changes['progress'] = 100;
+            } elseif ((int) $task->progress === 100) {
+                $changes['progress'] = 0;
+            }
+        }
+
+        DB::table('crm_tasks')->where('id', $item->object_id)->update($changes);
 
         // The query update skips the model events that normally clear the cached transformer output.
-        if ($uuid) {
-            CacheHelper::deleteKeys('Tasks', $uuid);
-        }
+        CacheHelper::deleteKeys('Tasks', $task->uuid);
+
+        \NextDeveloper\CRM\Services\TaskScheduleService::rollUp($task->crm_task_id);
     }
 
     /**

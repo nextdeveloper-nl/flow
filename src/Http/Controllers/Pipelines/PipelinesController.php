@@ -218,4 +218,12 @@ class PipelinesController extends AbstractController
 
         return ResponsableFactory::makeResponse($this, $item);
     }
+
+    /**
+     * Tasks of a project pipeline with their schedules, subtasks and links (leo4#1245).
+     */
+    public function gantt($pipelinesId)
+    {
+        return ResponsableFactory::makeResponse($this, PipelinesService::gantt($pipelinesId));
+    }
 }
