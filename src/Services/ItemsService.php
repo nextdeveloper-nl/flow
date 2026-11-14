@@ -60,6 +60,7 @@ class ItemsService extends AbstractItemsService
         );
 
         self::syncObjectProbability($item, $stage);
+        self::syncTaskState($item, $stage);
 
         if ($slaBreachedAt) {
             $item = parent::update($item->uuid, ['sla_breached_at' => $slaBreachedAt]);
@@ -142,6 +143,7 @@ class ItemsService extends AbstractItemsService
 
         if ($isStageMove) {
             self::syncObjectProbability($model, $stage);
+            self::syncTaskState($model, $stage);
 
             StageHistories::create([
                 'flow_item_id'         => $model->id,
@@ -207,6 +209,139 @@ class ItemsService extends AbstractItemsService
      * stage (create, move, restore). Written with a query update so the object's
      * observers and authorization checks do not block this system-side sync.
      */
+    /**
+     * Creates a CRM task and its card on a project board together (leo4#1242): both rows or
+     * neither. The task goes to the given stage or the pipeline's first one. The assignee
+     * defaults to the current user and must be a member of the current account; a CRM
+     * account is optional.
+     *
+     * @param  array{name: string, description?: ?string, due_date?: ?string, priority?: ?int,
+     *               assignee_id?: ?string, crm_account_id?: ?string, flow_stage_id?: ?string}  $data
+     */
+    public static function createTaskItem(string $pipelineUuid, array $data): Items
+    {
+        $pipeline = \NextDeveloper\Flow\Database\Models\Pipelines::where('uuid', $pipelineUuid)->first();
+
+        if (!$pipeline) {
+            throw new NotAllowedException('We cannot find this pipeline.');
+        }
+
+        $stages = Stages::withoutGlobalScopes()
+            ->where('flow_pipeline_id', $pipeline->id)
+            ->whereNull('deleted_at')
+            ->orderBy('position');
+
+        $stage = !empty($data['flow_stage_id'])
+            ? (clone $stages)->where('uuid', $data['flow_stage_id'])->first()
+            : (clone $stages)->first();
+
+        if (!$stage) {
+            throw new NotAllowedException('This pipeline has no such stage.');
+        }
+
+        $task = [
+            'name'        => $data['name'],
+            // crm_tasks.description is NOT NULL.
+            'description' => $data['description'] ?? '',
+            'due_date'    => $data['due_date'] ?? null,
+            'priority'    => $data['priority'] ?? null,
+        ];
+
+        if (!empty($data['assignee_id'])) {
+            $assigneeId = DB::table('iam_users')->where('uuid', $data['assignee_id'])->value('id');
+
+            $isMember = $assigneeId && DB::table('iam_account_user')
+                ->where('iam_user_id', $assigneeId)
+                ->where('iam_account_id', UserHelper::currentAccount()->id)
+                ->exists();
+
+            if (!$isMember) {
+                throw new NotAllowedException('The assignee is not a member of this account.');
+            }
+
+            $task['iam_user_id'] = $data['assignee_id'];
+        }
+
+        if (!empty($data['crm_account_id'])) {
+            $task['crm_account_id'] = $data['crm_account_id'];
+        }
+
+        return DB::transaction(function () use ($task, $pipeline, $stage) {
+            $created = \NextDeveloper\CRM\Services\TasksService::create($task);
+
+            return self::create([
+                'flow_pipeline_id' => $pipeline->uuid,
+                'flow_stage_id'    => $stage->uuid,
+                'object_type'      => PipelinesService::BOARD_TASK_TYPE,
+                'object_id'        => $created->uuid,
+                'position'         => 0,
+            ]);
+        });
+    }
+
+    /**
+     * A task on a project board follows its stage (leo4#1242): a won stage finishes it,
+     * any other stage reopens it. Entering a stage starts a fresh SLA, so the task is no
+     * longer delayed; syncTaskDelays() flips it back once that SLA runs out.
+     */
+    public static function syncTaskState(Items $item, ?Stages $stage = null): void
+    {
+        if ($item->object_type !== PipelinesService::BOARD_TASK_TYPE || !$item->object_id) {
+            return;
+        }
+
+        $stage ??= Stages::withoutGlobalScopes()->where('id', $item->flow_stage_id)->first();
+
+        if (!$stage) {
+            return;
+        }
+
+        $uuid = DB::table('crm_tasks')->where('id', $item->object_id)->value('uuid');
+
+        DB::table('crm_tasks')
+            ->where('id', $item->object_id)
+            ->update(['is_finished' => (bool) $stage->is_won, 'is_delayed' => false, 'updated_at' => now()]);
+
+        // The query update skips the model events that normally clear the cached transformer output.
+        if ($uuid) {
+            CacheHelper::deleteKeys('Tasks', $uuid);
+        }
+    }
+
+    /**
+     * Marks tasks on project boards as delayed while their stage SLA has run out and they
+     * are not finished, and clears the flag otherwise. Runs with the hourly SLA check.
+     * Returns how many tasks changed.
+     */
+    public static function syncTaskDelays(): int
+    {
+        $overdue = DB::table('flow_items')
+            ->select('object_id')
+            ->where('object_type', PipelinesService::BOARD_TASK_TYPE)
+            ->whereNull('deleted_at')
+            ->whereNotNull('sla_breached_at')
+            ->where('sla_breached_at', '<=', now());
+
+        $onBoards = DB::table('flow_items')
+            ->select('object_id')
+            ->where('object_type', PipelinesService::BOARD_TASK_TYPE)
+            ->whereNull('deleted_at');
+
+        $delayed = DB::table('crm_tasks')
+            ->whereIn('id', $overdue)
+            ->where(fn ($q) => $q->whereNull('is_finished')->orWhere('is_finished', false))
+            ->where(fn ($q) => $q->whereNull('is_delayed')->orWhere('is_delayed', false))
+            ->update(['is_delayed' => true, 'updated_at' => now()]);
+
+        $cleared = DB::table('crm_tasks')
+            ->whereIn('id', $onBoards)
+            ->whereNotIn('id', $overdue)
+            ->where('is_delayed', true)
+            ->update(['is_delayed' => false, 'updated_at' => now()]);
+
+        return $delayed + $cleared;
+    }
+
     public static function syncObjectProbability(Items $item, ?Stages $stage = null): void
     {
         $stage ??= Stages::withoutGlobalScopes()->where('id', $item->flow_stage_id)->first();
@@ -635,6 +770,11 @@ class ItemsService extends AbstractItemsService
      */
     public static function checkSlaBreaches(bool $dryRun = false): array
     {
+        // Task delays follow the SLA whether or not an automation acts on it.
+        if (!$dryRun) {
+            self::syncTaskDelays();
+        }
+
         // Start from the automations, not the items: only items an automation could
         // actually act on are worth loading. Most breached items have no SLA
         // automation at all, and some point at a disabled pusher.

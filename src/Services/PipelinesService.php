@@ -10,6 +10,8 @@ use NextDeveloper\Commons\Common\Cache\CacheHelper;
 use NextDeveloper\Commons\Database\GlobalScopes\LimitScope;
 use NextDeveloper\CRM\Database\Models\AccountsPerspective;
 use NextDeveloper\CRM\Database\Models\OpportunitiesPerspective;
+use NextDeveloper\CRM\Database\Models\Tasks;
+use NextDeveloper\IAM\Database\Models\Users;
 use NextDeveloper\Flow\Database\Models\ItemsPerspective;
 use NextDeveloper\Flow\Database\Models\StagesPerspective;
 use NextDeveloper\Flow\Http\Transformers\PipelinesTransformer;
@@ -259,6 +261,11 @@ class PipelinesService extends AbstractPipelinesService
     private const BOARD_OPPORTUNITY_TYPE = 'NextDeveloper\CRM\Opportunities';
 
     /**
+     * Item object_type of CRM tasks (project pipelines, leo4#1242).
+     */
+    public const BOARD_TASK_TYPE = 'NextDeveloper\CRM\Tasks';
+
+    /**
      * Safety-net TTL (seconds) of the board snapshot. Write paths invalidate explicitly
      * (see invalidateBoard); the TTL only heals changes made outside Flow, such as an
      * account owner or opportunity edit, and bounds SLA time drift.
@@ -397,6 +404,53 @@ class PipelinesService extends AbstractPipelinesService
     /**
      * Cache key of a board snapshot: pipeline uuid + invalidation version + account.
      */
+    /**
+     * Task fields for the board, keyed by crm_tasks.id. Tasks the user may not see stay out,
+     * so their cards render without task data, as opportunity cards do.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private static function boardTasks($items): array
+    {
+        $taskIds = $items->where('object_type', self::BOARD_TASK_TYPE)->pluck('object_id')->unique()->values();
+
+        if ($taskIds->isEmpty()) {
+            return [];
+        }
+
+        $tasks = Tasks::withoutGlobalScope(LimitScope::class)
+            ->whereIn('id', $taskIds)
+            ->get(['id', 'uuid', 'name', 'description', 'due_date', 'priority', 'iam_user_id', 'is_finished', 'is_delayed']);
+
+        $assignees = Users::withoutGlobalScopes()
+            ->whereIn('id', $tasks->pluck('iam_user_id')->filter()->unique()->values())
+            ->get(['id', 'uuid', 'name', 'surname', 'email'])
+            ->keyBy('id');
+
+        $result = [];
+
+        foreach ($tasks as $task) {
+            $assignee = $assignees->get($task->iam_user_id);
+
+            $result[$task->id] = [
+                'id'          => $task->uuid,
+                'name'        => $task->name,
+                'description' => $task->description,
+                'due_date'    => $task->due_date?->toIso8601String(),
+                'priority'    => $task->priority,
+                'is_finished' => (bool) $task->is_finished,
+                'is_delayed'  => (bool) $task->is_delayed,
+                'assignee'    => $assignee ? [
+                    'id'       => $assignee->uuid,
+                    'fullname' => trim($assignee->name.' '.$assignee->surname) ?: $assignee->email,
+                    'email'    => $assignee->email,
+                ] : null,
+            ];
+        }
+
+        return $result;
+    }
+
     private static function boardCacheKey(string $pipelineUuid, int $accountId): string
     {
         $version = (int) Cache::get(CacheHelper::getKey('FlowBoard', $pipelineUuid, 'version'), 1);
@@ -450,6 +504,10 @@ class PipelinesService extends AbstractPipelinesService
                 ->get(['id', 'account_owners_fullname', 'account_owners_email', 'domain_name'])
                 ->keyBy('id');
 
+        // 4b. Tasks for every task item in one query, through AuthorizationScope like the
+        //     opportunities, plus their assignees (crm_tasks.iam_user_id) in one more.
+        $tasks = self::boardTasks($items);
+
         // 5. Object uuids the scoped lookup could not see (and non-opportunity items), resolved
         //    like ItemsPerspectiveTransformer does, but batched: one query per object type.
         $objectUuids = self::resolveObjectUuids($items, $opportunities);
@@ -468,6 +526,7 @@ class PipelinesService extends AbstractPipelinesService
                 ? $opportunities->get($item->object_id)
                 : null;
             $account = $opportunity ? $accounts->get($opportunity->crm_account_id) : null;
+            $task = $item->object_type === self::BOARD_TASK_TYPE ? ($tasks[$item->object_id] ?? null) : null;
 
             $byStage[$item->flow_stage_id][] = [
                 'id'                    => $item->uuid,
@@ -475,8 +534,9 @@ class PipelinesService extends AbstractPipelinesService
                 'flow_stage_id'         => $stageUuids[$item->flow_stage_id],
                 'object_type'           => $item->object_type,
                 'object_id'             => $objectUuids[$item->object_type][$item->object_id] ?? null,
-                'object_name'           => $item->object_name,
-                'object_subtitle'       => $item->object_subtitle,
+                // The items view only names opportunities, accounts, tickets and VMs.
+                'object_name'           => $task['name'] ?? $item->object_name,
+                'object_subtitle'       => $task ? ($task['assignee']['fullname'] ?? null) : $item->object_subtitle,
                 'object_value'          => $item->object_value,
                 'position'              => $item->position,
                 'checklist_state'       => $item->checklist_state,
@@ -486,6 +546,7 @@ class PipelinesService extends AbstractPipelinesService
                 'sla_actioned_at'       => $item->sla_actioned_at?->toIso8601String(),
                 'created_at'            => $item->created_at?->toIso8601String(),
                 'updated_at'            => $item->updated_at?->toIso8601String(),
+                'task'                  => $task,
                 'owner'                 => $account ? [
                     'fullname'    => $account->account_owners_fullname,
                     'email'       => $account->account_owners_email,

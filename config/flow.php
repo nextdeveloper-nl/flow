@@ -214,13 +214,14 @@ return [
         ],
         'blank-project' => [
             'name'          => 'Blank project',
-            'description'   => 'To do, in progress and done. Add stages as the project needs them.',
+            'description'   => 'To do, in progress, review and done. Add stages as the project needs them.',
             'icon'          => '🗂️',
             'campaign_type' => null,
             'kind'          => 'project',
             'stages'        => [
                 ['name' => 'To do',       'color' => '#94a3b8', 'probability' => 0,   'sla_days' => null, 'is_won' => false, 'is_lost' => false, 'description' => 'Not started yet.'],
                 ['name' => 'In progress', 'color' => '#f59e0b', 'probability' => 50,  'sla_days' => null, 'is_won' => false, 'is_lost' => false, 'description' => 'Being worked on.'],
+                ['name' => 'Review',      'color' => '#a78bfa', 'probability' => 80,  'sla_days' => null, 'is_won' => false, 'is_lost' => false, 'description' => 'Waiting for a check before it is done.'],
                 ['name' => 'Done',        'color' => '#22c55e', 'probability' => 100, 'sla_days' => null, 'is_won' => true,  'is_lost' => false, 'description' => 'Finished.'],
             ],
         ],
