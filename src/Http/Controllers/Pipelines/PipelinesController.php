@@ -7,6 +7,8 @@ use NextDeveloper\Flow\Http\Controllers\AbstractController;
 use NextDeveloper\Commons\Http\Response\ResponsableFactory;
 use NextDeveloper\Flow\Http\Requests\Pipelines\PipelinesUpdateRequest;
 use NextDeveloper\Flow\Http\Requests\Pipelines\PipelinesFromTemplateRequest;
+use NextDeveloper\Flow\Http\Requests\Pipelines\PipelinesCreateTaskRequest;
+use NextDeveloper\Flow\Services\ItemsService;
 use NextDeveloper\Flow\Database\Filters\PipelinesQueryFilter;
 use NextDeveloper\Flow\Database\Models\Pipelines;
 use NextDeveloper\Flow\Services\PipelinesService;
@@ -203,4 +205,17 @@ class PipelinesController extends AbstractController
         return ResponsableFactory::makeResponse($this, $model);
     }
 
+    /**
+     * Adds a task card to a project pipeline: creates the CRM task and the flow item together.
+     *
+     * @param  PipelinesCreateTaskRequest $request
+     * @param  string $pipelinesId
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function createTask(PipelinesCreateTaskRequest $request, $pipelinesId)
+    {
+        $item = ItemsService::createTaskItem($pipelinesId, $request->validated());
+
+        return ResponsableFactory::makeResponse($this, $item);
+    }
 }

@@ -11,6 +11,9 @@ Route::prefix('pipelines')->group(
         // Single-call payload for the pipeline board page (must stay above the wildcard routes below).
         Route::get('/{flow_pipelines}/board', 'Pipelines\PipelinesController@board');
 
+        // Project pipelines: create a task and its card together (must stay above the wildcard routes below).
+        Route::post('/{flow_pipelines}/tasks', 'Pipelines\PipelinesController@createTask');
+
         Route::get('{flow_pipelines}/tags ', 'Pipelines\PipelinesController@tags');
         Route::post('{flow_pipelines}/tags ', 'Pipelines\PipelinesController@saveTags');
         Route::get('{flow_pipelines}/addresses ', 'Pipelines\PipelinesController@addresses');
