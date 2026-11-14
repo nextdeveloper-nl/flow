@@ -38,6 +38,7 @@ class ItemsPerspectiveTransformer extends AbstractItemsPerspectiveTransformer
             $model->object_type,
             $model->object_id
         );
+        $transformed['title'] = $model->title;
 
         Cache::set(
             CacheHelper::getKey('ItemsPerspective', $model->uuid, 'Transformed'),
@@ -47,8 +48,13 @@ class ItemsPerspectiveTransformer extends AbstractItemsPerspectiveTransformer
         return $transformed;
     }
 
-    private function resolveObjectUuid(string $objectType, int $objectId): ?string
+    private function resolveObjectUuid(?string $objectType, ?int $objectId): ?string
     {
+        // Cards without an object (custom pipelines, leo4#1243).
+        if (!$objectType || !$objectId) {
+            return null;
+        }
+
         $parts      = array_values(array_filter(explode('\\', $objectType)));
         $className  = array_pop($parts);
         $modelClass = '\\' . implode('\\', $parts) . '\\Database\\Models\\' . $className;

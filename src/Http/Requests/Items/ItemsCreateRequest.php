@@ -15,8 +15,13 @@ class ItemsCreateRequest extends AbstractFormRequest
         return [
             'flow_pipeline_id' => 'required|exists:flow_pipelines,uuid|uuid',
         'flow_stage_id' => 'required|exists:flow_stages,uuid|uuid',
-        'object_type' => 'required|string',
-        'object_id' => 'required',
+        // Optional on custom pipelines (leo4#1243): a card can have just a title and field values.
+        'object_type' => 'required_with:object_id|nullable|string',
+        'object_id' => 'required_with:object_type|nullable',
+        'title' => 'required_without:object_id|nullable|string|max:255',
+        'values' => 'sometimes|array',
+        'values.*.flow_column_id' => 'required|uuid|exists:flow_columns,uuid',
+        'values.*.value' => 'nullable',
         'position' => 'integer',
         'last_stage_changed_at' => 'date',
         'checklist_state' => 'nullable',

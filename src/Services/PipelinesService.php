@@ -451,6 +451,46 @@ class PipelinesService extends AbstractPipelinesService
         return $result;
     }
 
+    /**
+     * @return array{0: array<int, array<string, mixed>>, 1: array<int, array<string, mixed>>}
+     */
+    private static function boardFields(Pipelines $pipeline, $items): array
+    {
+        $columns = Columns::withoutGlobalScopes()
+            ->where('flow_pipeline_id', $pipeline->id)
+            ->whereNull('deleted_at')
+            ->where('is_active', true)
+            ->orderBy('position')
+            ->get(['id', 'uuid', 'name', 'label', 'field_type', 'options', 'is_required', 'position']);
+
+        $columnUuids = $columns->pluck('uuid', 'id');
+
+        $values = $items->isEmpty() || $columns->isEmpty()
+            ? collect()
+            : DB::table('flow_item_values')
+                ->whereIn('flow_item_id', $items->pluck('id'))
+                ->whereIn('flow_column_id', $columns->pluck('id'))
+                ->get(['flow_item_id', 'flow_column_id', 'value']);
+
+        $byItem = [];
+
+        foreach ($values as $value) {
+            $byItem[$value->flow_item_id][$columnUuids[$value->flow_column_id]] = $value->value;
+        }
+
+        $payload = $columns->map(fn ($c) => [
+            'id'          => $c->uuid,
+            'name'        => $c->name,
+            'label'       => $c->label,
+            'field_type'  => $c->field_type,
+            'options'     => $c->options,
+            'is_required' => (bool) $c->is_required,
+            'position'    => $c->position,
+        ])->values()->all();
+
+        return [$payload, $byItem];
+    }
+
     private static function boardCacheKey(string $pipelineUuid, int $accountId): string
     {
         $version = (int) Cache::get(CacheHelper::getKey('FlowBoard', $pipelineUuid, 'version'), 1);
@@ -508,6 +548,10 @@ class PipelinesService extends AbstractPipelinesService
         //     opportunities, plus their assignees (crm_tasks.iam_user_id) in one more.
         $tasks = self::boardTasks($items);
 
+        // 4c. Custom pipelines (leo4#1243): field definitions and every card's field values,
+        //     one query each. Other kinds skip this, so large sales boards stay as fast as before.
+        [$columns, $valuesByItem] = $pipeline->kind === 'custom' ? self::boardFields($pipeline, $items) : [[], []];
+
         // 5. Object uuids the scoped lookup could not see (and non-opportunity items), resolved
         //    like ItemsPerspectiveTransformer does, but batched: one query per object type.
         $objectUuids = self::resolveObjectUuids($items, $opportunities);
@@ -533,7 +577,8 @@ class PipelinesService extends AbstractPipelinesService
                 'flow_pipeline_id'      => $pipeline->uuid,
                 'flow_stage_id'         => $stageUuids[$item->flow_stage_id],
                 'object_type'           => $item->object_type,
-                'object_id'             => $objectUuids[$item->object_type][$item->object_id] ?? null,
+                'object_id'             => $item->object_type ? ($objectUuids[$item->object_type][$item->object_id] ?? null) : null,
+                'title'                 => $item->title,
                 // The items view only names opportunities, accounts, tickets and VMs.
                 'object_name'           => $task['name'] ?? $item->object_name,
                 'object_subtitle'       => $task ? ($task['assignee']['fullname'] ?? null) : $item->object_subtitle,
@@ -547,6 +592,7 @@ class PipelinesService extends AbstractPipelinesService
                 'created_at'            => $item->created_at?->toIso8601String(),
                 'updated_at'            => $item->updated_at?->toIso8601String(),
                 'task'                  => $task,
+                'values'                => $valuesByItem[$item->id] ?? ($pipeline->kind === 'custom' ? [] : null),
                 'owner'                 => $account ? [
                     'fullname'    => $account->account_owners_fullname,
                     'email'       => $account->account_owners_email,
@@ -603,6 +649,7 @@ class PipelinesService extends AbstractPipelinesService
             'pipeline' => app(PipelinesTransformer::class)->transform($pipeline),
             'stages'   => $stagePayload,
             'campaign' => $campaign,
+            'columns'  => $columns,
             'built_at' => $now->toIso8601String(),
         ];
     }
@@ -620,7 +667,7 @@ class PipelinesService extends AbstractPipelinesService
             $uuids[self::BOARD_OPPORTUNITY_TYPE][$id] = $opportunity->uuid;
         }
 
-        foreach ($items->groupBy('object_type') as $objectType => $typeItems) {
+        foreach ($items->whereNotNull('object_type')->groupBy('object_type') as $objectType => $typeItems) {
             $missing = $typeItems->pluck('object_id')->unique()
                 ->reject(fn ($id) => isset($uuids[$objectType][$id]))
                 ->values();

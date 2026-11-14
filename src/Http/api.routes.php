@@ -56,6 +56,10 @@ Route::prefix('items')->group(
         Route::get('/', 'Items\ItemsController@index');
         Route::get('/actions', 'Items\ItemsController@getActions');
 
+        // Custom pipelines: attach a record to a card, or detach it (leo4#1243).
+        Route::post('/{flow_items}/link', 'Items\ItemsController@link');
+        Route::post('/{flow_items}/unlink', 'Items\ItemsController@unlink');
+
         Route::get('{flow_items}/tags ', 'Items\ItemsController@tags');
         Route::post('{flow_items}/tags ', 'Items\ItemsController@saveTags');
         Route::get('{flow_items}/addresses ', 'Items\ItemsController@addresses');

@@ -32,6 +32,7 @@ class ItemsTransformer extends AbstractItemsTransformer
         }
 
         $transformed = parent::transform($model);
+        $transformed['title'] = $model->title;
 
         Cache::set(
             CacheHelper::getKey('Items', $model->uuid, 'Transformed'),
