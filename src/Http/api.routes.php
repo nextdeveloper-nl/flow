@@ -14,6 +14,9 @@ Route::prefix('pipelines')->group(
         // Project pipelines: create a task and its card together (must stay above the wildcard routes below).
         Route::post('/{flow_pipelines}/tasks', 'Pipelines\PipelinesController@createTask');
 
+        // Project pipelines: tasks with schedules, subtasks and links for the Gantt view (leo4#1245).
+        Route::get('/{flow_pipelines}/gantt', 'Pipelines\PipelinesController@gantt');
+
         Route::get('{flow_pipelines}/tags ', 'Pipelines\PipelinesController@tags');
         Route::post('{flow_pipelines}/tags ', 'Pipelines\PipelinesController@saveTags');
         Route::get('{flow_pipelines}/addresses ', 'Pipelines\PipelinesController@addresses');
