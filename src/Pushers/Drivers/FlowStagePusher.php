@@ -29,6 +29,35 @@ class FlowStagePusher extends AbstractPusher
         return 'flow_stage';
     }
 
+    /**
+     * Objects this pusher works with (used for UI filtering).
+     */
+    public static function supportedObjects(): array
+    {
+        return [
+            \NextDeveloper\Flow\Database\Models\Items::class,
+        ];
+    }
+
+    /**
+     * Self-description used by GET /commons/pushers/providers.
+     */
+    public static function definition(): array
+    {
+        return array_merge(parent::definition(), [
+            'label'           => 'Flow Stage Pusher',
+            'description'     => 'Moves a Flow item to a target stage.',
+            'is_internal'     => true,
+            'requires_url'    => false,
+            'requires_token'  => false,
+            'supports_auth'   => false,
+            'metadata_fields' => [
+                ['key' => 'flow_stage_id', 'type' => 'uuid', 'required' => true, 'label' => 'Destination stage', 'references' => 'NextDeveloper\\Flow\\Database\\Models\\Stages'],
+                ['key' => 'hourly_limit', 'type' => 'integer', 'required' => false, 'label' => 'Hourly limit', 'default' => 10],
+            ],
+        ]);
+    }
+
     public function send(PusherLogs $log, Pushers $pusher): PusherResult
     {
         if (!$this->isWithinLimit($pusher)) {
