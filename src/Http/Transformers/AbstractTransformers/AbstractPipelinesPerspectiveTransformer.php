@@ -67,6 +67,10 @@ class AbstractPipelinesPerspectiveTransformer extends AbstractTransformer
             'is_template'  =>  $model->is_template,
             'is_system'  =>  $model->is_system,
             'is_active'  =>  $model->is_active,
+            'kind'  =>  $model->kind,
+            // uuid of the live campaign behind the pipeline, null when there is none.
+            'campaign_id'  =>  $model->campaign_id,
+            'campaign_type'  =>  $model->campaign_type,
             'iam_account_id'  =>  $iamAccountId ? $iamAccountId->uuid : null,
             'iam_user_id'  =>  $iamUserId ? $iamUserId->uuid : null,
             'created_at'  =>  $model->created_at,

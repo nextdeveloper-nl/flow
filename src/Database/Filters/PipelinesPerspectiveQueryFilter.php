@@ -30,6 +30,20 @@ class PipelinesPerspectiveQueryFilter extends AbstractQueryFilter
     }
 
 
+    /** true: pipelines with a live campaign behind them; false: campaign-less pipelines. */
+    public function hasCampaign($value)
+    {
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN)
+            ? $this->builder->whereNotNull('campaign_id')
+            : $this->builder->whereNull('campaign_id');
+    }
+
+    /** sales | marketing | project | custom (leo4#1241). */
+    public function kind($value)
+    {
+        return $this->builder->where('kind', $value);
+    }
+
     public function objectType($value)
     {
         return $this->builder->where('object_type', 'ilike', '%' . $value . '%');

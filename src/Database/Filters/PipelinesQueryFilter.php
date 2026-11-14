@@ -30,6 +30,12 @@ class PipelinesQueryFilter extends AbstractQueryFilter
     }
 
 
+    /** sales | marketing | project | custom (leo4#1241). */
+    public function kind($value)
+    {
+        return $this->builder->where('kind', $value);
+    }
+
     public function objectType($value)
     {
         return $this->builder->where('object_type', 'ilike', '%' . $value . '%');

@@ -18,6 +18,7 @@ return [
             'description'   => 'Standard outbound / inbound sales flow from first contact to close.',
             'icon'          => '🤝',
             'campaign_type' => 'sales',
+            'kind'          => 'sales',
             'stages'        => [
                 ['name' => 'Lead',          'color' => '#94a3b8', 'probability' => 10,  'sla_days' => 7,  'is_won' => false, 'is_lost' => false, 'description' => 'Initial inquiry or inbound contact. Not yet qualified.'],
                 ['name' => 'Qualified',     'color' => '#60a5fa', 'probability' => 30,  'sla_days' => 14, 'is_won' => false, 'is_lost' => false, 'description' => 'Lead confirmed to match your ideal customer profile.'],
@@ -34,6 +35,7 @@ return [
             'description'   => 'Post-sale activation flow from signed contract to fully live customer.',
             'icon'          => '🚀',
             'campaign_type' => null,
+            'kind'          => 'project',
             'stages'        => [
                 ['name' => 'Signed',            'color' => '#6366f1', 'probability' => 100, 'sla_days' => 3,  'is_won' => false, 'is_lost' => false, 'description' => 'Contract signed, onboarding begins.'],
                 ['name' => 'Kickoff Scheduled', 'color' => '#60a5fa', 'probability' => 100, 'sla_days' => 7,  'is_won' => false, 'is_lost' => false, 'description' => 'Kickoff call has been booked with the customer.'],
@@ -49,6 +51,7 @@ return [
             'description'   => 'Customer support and bug tracking workflow from report to resolution.',
             'icon'          => '🎧',
             'campaign_type' => null,
+            'kind'          => 'project',
             'stages'        => [
                 ['name' => 'New',              'color' => '#94a3b8', 'probability' => 0,   'sla_days' => 1, 'is_won' => false, 'is_lost' => false, 'description' => 'Ticket received, not yet assigned.'],
                 ['name' => 'Assigned',         'color' => '#60a5fa', 'probability' => 20,  'sla_days' => 1, 'is_won' => false, 'is_lost' => false, 'description' => 'Ticket assigned to an agent or team.'],
@@ -64,6 +67,7 @@ return [
             'description'   => '3-email spaced playbook spread over two weeks to get replies without annoying prospects.',
             'icon'          => '📧',
             'campaign_type' => 'marketing',
+            'kind'          => 'marketing',
             'stages'        => [
                 ['name' => 'Email 1 — Initial Outreach',    'color' => '#6366f1', 'probability' => 10, 'sla_days' => 4,  'is_won' => false, 'is_lost' => false, 'description' => 'Day 1. Lead with a strong value proposition, target a specific pain point, and end with a low-friction CTA.'],
                 ['name' => 'Email 2 — Value-Add Follow-up', 'color' => '#f59e0b', 'probability' => 30, 'sla_days' => 6,  'is_won' => false, 'is_lost' => false, 'description' => 'Day 4–5. Add a case study, new resource, or relevant insight. Do not just "check in." Send in the same thread.'],
@@ -77,6 +81,7 @@ return [
             'description'   => 'Automated nurture sequence that warms up a new lead until they are sales-ready.',
             'icon'          => '🌱',
             'campaign_type' => 'marketing',
+            'kind'          => 'marketing',
             'stages'        => [
                 ['name' => 'New Lead',             'color' => '#94a3b8', 'probability' => 10,  'sla_days' => 1, 'is_won' => false, 'is_lost' => false, 'description' => 'Lead just entered the funnel via form fill, download, or signup.'],
                 ['name' => 'Welcome / Delivered',  'color' => '#60a5fa', 'probability' => 20,  'sla_days' => 2, 'is_won' => false, 'is_lost' => false, 'description' => 'Deliver the requested content or welcome message immediately.'],
@@ -92,6 +97,7 @@ return [
             'description'   => 'Go-to-market flow for launching a new product or feature.',
             'icon'          => '📣',
             'campaign_type' => 'marketing',
+            'kind'          => 'marketing',
             'stages'        => [
                 ['name' => 'Strategy & Brief',      'color' => '#94a3b8', 'probability' => 100, 'sla_days' => 14, 'is_won' => false, 'is_lost' => false, 'description' => 'Define goal, audience, offer, channels, and KPIs.'],
                 ['name' => 'Teaser / Pre-launch',   'color' => '#60a5fa', 'probability' => 100, 'sla_days' => 14, 'is_won' => false, 'is_lost' => false, 'description' => 'Build anticipation across channels ahead of launch day.'],
@@ -107,6 +113,7 @@ return [
             'description'   => 'Re-activate stalled deals or cold contacts before writing them off.',
             'icon'          => '🪃',
             'campaign_type' => 'marketing',
+            'kind'          => 'marketing',
             'stages'        => [
                 ['name' => 'Stalled / Cold Detected',  'color' => '#94a3b8', 'probability' => 10,  'sla_days' => 30, 'is_won' => false, 'is_lost' => false, 'description' => 'Deal or contact inactive past SLA threshold, flagged for win-back.'],
                 ['name' => 'Re-engagement Outreach',   'color' => '#60a5fa', 'probability' => 25,  'sla_days' => 7,  'is_won' => false, 'is_lost' => false, 'description' => 'Personalized email, exec touch, or incentive sent.'],
@@ -121,6 +128,7 @@ return [
             'description'   => 'Promote, run, and follow up on a lead-generating webinar or online event.',
             'icon'          => '🎥',
             'campaign_type' => 'marketing',
+            'kind'          => 'marketing',
             'stages'        => [
                 ['name' => 'Promotion',           'color' => '#94a3b8', 'probability' => 100, 'sla_days' => 21, 'is_won' => false, 'is_lost' => false, 'description' => 'Multi-channel promotion begins ~4 weeks out (email, social, ads, partners).'],
                 ['name' => 'Registered',          'color' => '#60a5fa', 'probability' => 100, 'sla_days' => 14, 'is_won' => false, 'is_lost' => false, 'description' => 'Prospect registered for the webinar.'],
@@ -136,6 +144,7 @@ return [
             'description'   => 'Recover lost e-commerce sales from shoppers who abandoned checkout.',
             'icon'          => '🛒',
             'campaign_type' => 'marketing',
+            'kind'          => 'marketing',
             'stages'        => [
                 ['name' => 'Cart Abandoned',  'color' => '#94a3b8', 'probability' => 10,  'sla_days' => 1, 'is_won' => false, 'is_lost' => false, 'description' => 'Checkout started but not completed; wait period before first touch.'],
                 ['name' => 'Reminder 1',      'color' => '#60a5fa', 'probability' => 20,  'sla_days' => 1, 'is_won' => false, 'is_lost' => false, 'description' => 'Cart reminder with item details and social proof.'],
@@ -151,6 +160,7 @@ return [
             'description'   => 'Coordinated sales + marketing push targeting a specific named account.',
             'icon'          => '🎯',
             'campaign_type' => 'marketing',
+            'kind'          => 'marketing',
             'stages'        => [
                 ['name' => 'Target Account Selected',    'color' => '#94a3b8', 'probability' => 10,  'sla_days' => 7,  'is_won' => false, 'is_lost' => false, 'description' => 'Account identified and added to the target list.'],
                 ['name' => 'Awareness',                  'color' => '#60a5fa', 'probability' => 25,  'sla_days' => 14, 'is_won' => false, 'is_lost' => false, 'description' => 'Personalized ads and content introduce the account to your brand.'],
@@ -166,6 +176,7 @@ return [
             'description'   => 'Operational flow for planning and running a company event, from concept to wrap-up.',
             'icon'          => '🎪',
             'campaign_type' => null,
+            'kind'          => 'project',
             'stages'        => [
                 ['name' => 'Concept & Budget',        'color' => '#94a3b8', 'probability' => 100, 'sla_days' => 14, 'is_won' => false, 'is_lost' => false, 'description' => 'Define event goals, format, and budget approval.'],
                 ['name' => 'Venue & Vendors Booked',  'color' => '#60a5fa', 'probability' => 100, 'sla_days' => 21, 'is_won' => false, 'is_lost' => false, 'description' => 'Venue, catering, and key vendors confirmed.'],
@@ -174,6 +185,55 @@ return [
                 ['name' => 'Event Day',               'color' => '#f97316', 'probability' => 100, 'sla_days' => 1,  'is_won' => false, 'is_lost' => false, 'description' => 'Event is live; on-site execution and coordination.'],
                 ['name' => 'Wrapped Up',              'color' => '#22c55e', 'probability' => 100, 'sla_days' => null, 'is_won' => true,  'is_lost' => false, 'description' => 'Event complete; post-event report and follow-ups sent.'],
                 ['name' => 'Cancelled',               'color' => '#ef4444', 'probability' => 0,   'sla_days' => null, 'is_won' => false, 'is_lost' => true,  'description' => 'Event postponed or cancelled before execution.'],
+            ],
+        ],
+        // Blank starting points, one per kind (leo4#1241). Not offered on the campaign path.
+        'blank-sales' => [
+            'name'          => 'Blank sales pipeline',
+            'description'   => 'Start from three stages and shape the sales process yourself.',
+            'icon'          => '📈',
+            'campaign_type' => null,
+            'kind'          => 'sales',
+            'stages'        => [
+                ['name' => 'New',  'color' => '#94a3b8', 'probability' => 10,  'sla_days' => null, 'is_won' => false, 'is_lost' => false, 'description' => 'A new opportunity.'],
+                ['name' => 'Won',  'color' => '#22c55e', 'probability' => 100, 'sla_days' => null, 'is_won' => true,  'is_lost' => false, 'description' => 'Deal closed successfully.'],
+                ['name' => 'Lost', 'color' => '#ef4444', 'probability' => 0,   'sla_days' => null, 'is_won' => false, 'is_lost' => true,  'description' => 'Opportunity did not convert.'],
+            ],
+        ],
+        'blank-marketing' => [
+            'name'          => 'Blank marketing pipeline',
+            'description'   => 'Start from three stages and shape the campaign steps yourself.',
+            'icon'          => '📣',
+            'campaign_type' => null,
+            'kind'          => 'marketing',
+            'stages'        => [
+                ['name' => 'New',       'color' => '#94a3b8', 'probability' => 10,  'sla_days' => null, 'is_won' => false, 'is_lost' => false, 'description' => 'A new prospect.'],
+                ['name' => 'Engaged',   'color' => '#60a5fa', 'probability' => 50,  'sla_days' => null, 'is_won' => false, 'is_lost' => false, 'description' => 'The prospect responded.'],
+                ['name' => 'Converted', 'color' => '#22c55e', 'probability' => 100, 'sla_days' => null, 'is_won' => true,  'is_lost' => false, 'description' => 'The prospect became a lead or customer.'],
+            ],
+        ],
+        'blank-project' => [
+            'name'          => 'Blank project',
+            'description'   => 'To do, in progress and done. Add stages as the project needs them.',
+            'icon'          => '🗂️',
+            'campaign_type' => null,
+            'kind'          => 'project',
+            'stages'        => [
+                ['name' => 'To do',       'color' => '#94a3b8', 'probability' => 0,   'sla_days' => null, 'is_won' => false, 'is_lost' => false, 'description' => 'Not started yet.'],
+                ['name' => 'In progress', 'color' => '#f59e0b', 'probability' => 50,  'sla_days' => null, 'is_won' => false, 'is_lost' => false, 'description' => 'Being worked on.'],
+                ['name' => 'Done',        'color' => '#22c55e', 'probability' => 100, 'sla_days' => null, 'is_won' => true,  'is_lost' => false, 'description' => 'Finished.'],
+            ],
+        ],
+        'blank-custom' => [
+            'name'          => 'Blank pipeline',
+            'description'   => 'Three neutral stages. Rename and add stages for whatever you track.',
+            'icon'          => '🧩',
+            'campaign_type' => null,
+            'kind'          => 'custom',
+            'stages'        => [
+                ['name' => 'New',         'color' => '#94a3b8', 'probability' => 0,   'sla_days' => null, 'is_won' => false, 'is_lost' => false, 'description' => 'Just added.'],
+                ['name' => 'In progress', 'color' => '#60a5fa', 'probability' => 50,  'sla_days' => null, 'is_won' => false, 'is_lost' => false, 'description' => 'Being handled.'],
+                ['name' => 'Done',        'color' => '#22c55e', 'probability' => 100, 'sla_days' => null, 'is_won' => true,  'is_lost' => false, 'description' => 'Finished.'],
             ],
         ],
     ],

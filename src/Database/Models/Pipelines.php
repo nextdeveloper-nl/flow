@@ -27,6 +27,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property boolean $is_template
  * @property boolean $is_system
  * @property boolean $is_active
+ * @property string $kind
  * @property integer $iam_account_id
  * @property integer $iam_user_id
  * @property \Carbon\Carbon $created_at
@@ -56,6 +57,7 @@ class Pipelines extends Model
             'is_template',
             'is_system',
             'is_active',
+            'kind',
             'iam_account_id',
             'iam_user_id',
     ];
@@ -88,6 +90,7 @@ class Pipelines extends Model
     'is_template' => 'boolean',
     'is_system' => 'boolean',
     'is_active' => 'boolean',
+    'kind' => 'string',
     'created_at' => 'datetime',
     'updated_at' => 'datetime',
     'deleted_at' => 'datetime',
