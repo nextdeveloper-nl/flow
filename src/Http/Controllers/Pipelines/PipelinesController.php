@@ -6,6 +6,7 @@ use Illuminate\Http\Request;
 use NextDeveloper\Flow\Http\Controllers\AbstractController;
 use NextDeveloper\Commons\Http\Response\ResponsableFactory;
 use NextDeveloper\Flow\Http\Requests\Pipelines\PipelinesUpdateRequest;
+use NextDeveloper\Flow\Http\Requests\Pipelines\PipelinesFromTemplateRequest;
 use NextDeveloper\Flow\Database\Filters\PipelinesQueryFilter;
 use NextDeveloper\Flow\Database\Models\Pipelines;
 use NextDeveloper\Flow\Services\PipelinesService;
@@ -183,16 +184,20 @@ class PipelinesController extends AbstractController
     }
 
     /**
-     * Creates a new pipeline + ordered stages from a config-defined template.
+     * Creates a pipeline + ordered stages without a campaign: from a config-defined template,
+     * or blank for the given kind. Body: kind?, template_id?, name? (one of kind/template_id).
      *
-     * @param  Request $request
+     * @param  PipelinesFromTemplateRequest $request
      * @return \Illuminate\Http\JsonResponse
      */
-    public function createFromTemplate(Request $request)
+    public function createFromTemplate(PipelinesFromTemplateRequest $request)
     {
+        $data = $request->validated();
+
         $model = PipelinesService::createFromTemplate(
-            $request->get('template_id'),
-            $request->get('name')
+            $data['template_id'] ?? null,
+            $data['name'] ?? null,
+            $data['kind'] ?? null
         );
 
         return ResponsableFactory::makeResponse($this, $model);

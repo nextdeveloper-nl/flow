@@ -166,6 +166,7 @@ class PipelinesService extends AbstractPipelinesService
                 'description'   => $template['description'],
                 'icon'          => $template['icon'],
                 'campaign_type' => $template['campaign_type'],
+                'kind'          => $template['kind'] ?? self::KIND_CUSTOM,
                 'stages'        => $template['stages'],
             ];
         }
@@ -180,21 +181,33 @@ class PipelinesService extends AbstractPipelinesService
      *
      * @throws NotAllowedException if the template id does not exist in config.
      */
-    public static function createFromTemplate(string $templateId, ?string $name = null): Pipelines
+    public static function createFromTemplate(?string $templateId, ?string $name = null, ?string $kind = null): Pipelines
     {
+        if ($kind !== null && !in_array($kind, self::KINDS, true)) {
+            throw new NotAllowedException('Unknown pipeline kind: ' . $kind);
+        }
+
+        // No template: start blank for the kind (leo4#1241).
+        $templateId ??= 'blank-' . ($kind ?? self::KIND_CUSTOM);
+
         $template = config("flow.pipeline_templates.{$templateId}");
 
         if (!$template) {
             throw new NotAllowedException('Pipeline template not found.');
         }
 
+        $kind ??= $template['kind'] ?? self::KIND_CUSTOM;
+
         $accountId = UserHelper::currentAccount()->id;
         $userId    = UserHelper::me()->id;
 
-        return DB::transaction(function () use ($template, $name, $accountId, $userId) {
+        return DB::transaction(function () use ($template, $name, $kind, $accountId, $userId) {
             $pipeline = Pipelines::create([
                 'name'           => $name ?? $template['name'],
                 'description'    => $template['description'],
+                'kind'           => $kind,
+                // What the items are. A campaign pipeline is re-pointed at its campaign afterwards.
+                'object_type'    => self::itemObjectTypeForKind($kind),
                 'is_template'    => false,
                 'is_system'      => false,
                 'is_active'      => true,
@@ -222,6 +235,23 @@ class PipelinesService extends AbstractPipelinesService
     }
 
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
+
+    public const KIND_SALES = 'sales';
+    public const KIND_MARKETING = 'marketing';
+    public const KIND_PROJECT = 'project';
+    public const KIND_CUSTOM = 'custom';
+
+    /** What a pipeline is for (flow_pipelines.kind). */
+    public const KINDS = [self::KIND_SALES, self::KIND_MARKETING, self::KIND_PROJECT, self::KIND_CUSTOM];
+
+    /**
+     * The item type a new pipeline of this kind is designed for. Sales, marketing and custom
+     * pipelines hold opportunities for now; project pipelines hold tasks (leo4#1242).
+     */
+    public static function itemObjectTypeForKind(string $kind): string
+    {
+        return $kind === self::KIND_PROJECT ? 'NextDeveloper\CRM\Tasks' : self::BOARD_OPPORTUNITY_TYPE;
+    }
 
     /**
      * Item object_type of CRM opportunities as stored in flow_items.object_type (short form).

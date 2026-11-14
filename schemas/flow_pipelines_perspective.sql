@@ -1,5 +1,6 @@
 -- PostgreSQL
 -- VIEW (read-only; re-run this file with CREATE OR REPLACE VIEW whenever the SELECT needs to change)
+-- New columns go at the end: CREATE OR REPLACE VIEW cannot reorder or rename existing ones.
 
 CREATE OR REPLACE VIEW flow_pipelines_perspective AS
 SELECT fp.id,
@@ -19,7 +20,10 @@ SELECT fp.id,
     COALESCE(sc.stage_count, 0::bigint) AS stage_count,
     COALESCE(ic.active_item_count, 0::bigint) AS active_item_count,
     COALESCE(ic.won_item_count, 0::bigint) AS won_item_count,
-    COALESCE(ic.lost_item_count, 0::bigint) AS lost_item_count
+    COALESCE(ic.lost_item_count, 0::bigint) AS lost_item_count,
+    fp.kind,
+    camp.uuid AS campaign_id,
+    camp.campaign_type
    FROM flow_pipelines fp
      LEFT JOIN ( SELECT flow_stages.flow_pipeline_id,
             count(*) AS stage_count
@@ -33,4 +37,11 @@ SELECT fp.id,
            FROM flow_items fi
              JOIN flow_stages fs ON fs.id = fi.flow_stage_id
           WHERE fi.deleted_at IS NULL
-          GROUP BY fi.flow_pipeline_id) ic ON ic.flow_pipeline_id = fp.id;
+          GROUP BY fi.flow_pipeline_id) ic ON ic.flow_pipeline_id = fp.id
+     -- The live campaign behind the pipeline, linked either way round (one row per pipeline).
+     LEFT JOIN LATERAL ( SELECT c.uuid, c.campaign_type
+           FROM crm_campaigns c
+          WHERE c.deleted_at IS NULL
+            AND ((fp.object_type LIKE '%Campaigns' AND fp.object_id = c.id) OR c.flow_pipeline_id = fp.id)
+          ORDER BY c.id
+         LIMIT 1) camp ON true;

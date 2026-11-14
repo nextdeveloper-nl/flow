@@ -67,6 +67,7 @@ class AbstractPipelinesTransformer extends AbstractTransformer
             'is_template'  =>  $model->is_template,
             'is_system'  =>  $model->is_system,
             'is_active'  =>  $model->is_active,
+            'kind'  =>  $model->kind,
             'iam_account_id'  =>  $iamAccountId ? $iamAccountId->uuid : null,
             'iam_user_id'  =>  $iamUserId ? $iamUserId->uuid : null,
             'created_at'  =>  $model->created_at,
