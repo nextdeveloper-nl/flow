@@ -158,7 +158,10 @@ class ItemsService extends AbstractItemsService
         ]);
 
         if ($isStageMove) {
-            self::syncObjectProbability($model, $stage);
+            // The previous stage's default tells us whether the user changed the probability by hand.
+            $previousStageProbability = Stages::withoutGlobalScopes()->where('id', $oldStageId)->value('probability');
+
+            self::syncObjectProbability($model, $stage, $previousStageProbability);
             self::syncTaskState($model, $stage);
 
             StageHistories::create([
@@ -502,7 +505,15 @@ class ItemsService extends AbstractItemsService
         return $delayed + $cleared;
     }
 
-    public static function syncObjectProbability(Items $item, ?Stages $stage = null): void
+    /**
+     * Copies the stage's probability onto the item's linked object (e.g. a CRM opportunity) when it has a
+     * probability field. Called whenever an item enters a stage (create, move, restore).
+     *
+     * A probability the user set by hand is kept: only an object still on the 0 default (or NULL), or, on a stage
+     * move, still on the PREVIOUS stage's probability ($previousStageProbability), is replaced. Without this, an
+     * explicit probability given at create was overwritten with the "Lead" stage default right after create.
+     */
+    public static function syncObjectProbability(Items $item, ?Stages $stage = null, ?int $previousStageProbability = null): void
     {
         $stage ??= Stages::withoutGlobalScopes()->where('id', $item->flow_stage_id)->first();
 
@@ -519,6 +530,15 @@ class ItemsService extends AbstractItemsService
         $object = $modelClass::withoutGlobalScopes()
             ->where('id', $item->object_id)
             ->whereRaw('probability IS DISTINCT FROM ?', [$stage->probability])
+            // Only replace values that were never set by hand (0 / NULL / the previous stage's default).
+            ->where(function ($query) use ($previousStageProbability) {
+                $replaceable = array_values(array_unique(array_filter(
+                    [0, $previousStageProbability],
+                    fn ($probability) => $probability !== null
+                )));
+
+                $query->whereNull('probability')->orWhereIn('probability', $replaceable);
+            })
             ->first(['id', 'uuid']);
 
         if (!$object) {
