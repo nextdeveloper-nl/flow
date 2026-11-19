@@ -2,6 +2,8 @@
 
 namespace NextDeveloper\Flow\Pushers\Drivers;
 
+use Illuminate\Contracts\Cache\LockTimeoutException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use NextDeveloper\Commons\Database\Models\PusherLogs;
@@ -183,18 +185,6 @@ class HiggsfieldPusher extends AbstractPusher
             $metadata = array_merge($metadata, HiggsfieldGenerationsService::platformLimits($metadata));
         }
 
-        if (!$this->isWithinLimit($pusher, (int) ($metadata['hourly_limit'] ?? self::DEFAULT_HOURLY_LIMIT))) {
-            $limit = (int) ($metadata['hourly_limit'] ?? self::DEFAULT_HOURLY_LIMIT);
-
-            Log::warning('[HiggsfieldPusher] Hourly generation limit reached - skipping.', [
-                'pusher_log_id' => $log->id,
-                'pusher_id'     => $pusher->id,
-                'hourly_limit'  => $limit,
-            ]);
-
-            return PusherResult::fail(429, 'Hourly generation limit of ' . $limit . ' reached. Skipping.');
-        }
-
         // Prompt and parameters are rendered from the payload. A rendered prompt may not be empty.
         $prompt = trim((string) HiggsfieldGenerationsService::render((string) ($metadata['prompt_template'] ?? ''), $body));
 
@@ -217,22 +207,49 @@ class HiggsfieldPusher extends AbstractPusher
             $estimate = $client->estimate($modelPath, $requestBody);
             $usd = isset($estimate['usd']) && is_numeric($estimate['usd']) ? (float) $estimate['usd'] : null;
 
-            $guard = $this->checkBudget($metadata, $usd, (int) $pusher->iam_account_id);
+            // Check and reservation must be one atomic step per account: without the lock, parallel pushes all read the
+            // same "spent so far" and together overshoot the limits. The generation row (with its estimated cost) is
+            // created inside the lock by submit(), so the next push already counts it, even while it is still pending.
+            $lock = Cache::lock('higgsfield:account:' . (int) $pusher->iam_account_id, 60);
 
-            if ($guard !== null) {
-                return PusherResult::fail(422, $guard);
+            try {
+                $lock->block(15);
+            } catch (LockTimeoutException) {
+                return PusherResult::fail(429, 'Another Higgsfield generation of this account is being submitted. Try again shortly.');
             }
 
-            $media = HiggsfieldGenerationsService::submit(
-                $pusher,
-                $log,
-                $item,
-                $service,
-                $modelPath,
-                $mediaType,
-                $requestBody,
-                $usd !== null ? (string) $estimate['usd'] : null
-            );
+            try {
+                $limit = (int) ($metadata['hourly_limit'] ?? self::DEFAULT_HOURLY_LIMIT);
+
+                if (!$this->isWithinLimit($pusher, $service === null, $limit)) {
+                    Log::warning('[HiggsfieldPusher] Hourly generation limit reached - skipping.', [
+                        'pusher_log_id' => $log->id,
+                        'pusher_id'     => $pusher->id,
+                        'hourly_limit'  => $limit,
+                    ]);
+
+                    return PusherResult::fail(429, 'Hourly generation limit of ' . $limit . ' reached. Skipping.');
+                }
+
+                $guard = $this->checkBudget($metadata, $usd, (int) $pusher->iam_account_id);
+
+                if ($guard !== null) {
+                    return PusherResult::fail(422, $guard);
+                }
+
+                $media = HiggsfieldGenerationsService::submit(
+                    $pusher,
+                    $log,
+                    $item,
+                    $service,
+                    $modelPath,
+                    $mediaType,
+                    $requestBody,
+                    $usd !== null ? (string) $estimate['usd'] : null
+                );
+            } finally {
+                $lock->release();
+            }
 
             Log::info('[HiggsfieldPusher] Generation submitted.', [
                 'pusher_log_id' => $log->id,
@@ -295,8 +312,17 @@ class HiggsfieldPusher extends AbstractPusher
         return null;
     }
 
-    private function isWithinLimit(Pushers $pusher, int $limit): bool
+    /**
+     * Hourly ceiling. On the platform credentials it is counted over every Higgsfield generation of the account
+     * (all pushers, including ones still pending), so splitting pushes across pushers does not multiply the limit.
+     * On the account's own credentials it stays per pusher.
+     */
+    private function isWithinLimit(Pushers $pusher, bool $platformCredentials, int $limit): bool
     {
+        if ($platformCredentials) {
+            return HiggsfieldGenerationsService::generationsInLastHour((int) $pusher->iam_account_id) < $limit;
+        }
+
         $recentCount = PusherLogs::withoutGlobalScopes()
             ->where('common_pusher_id', $pusher->id)
             ->where('status', 'completed')

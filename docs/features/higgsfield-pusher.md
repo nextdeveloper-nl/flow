@@ -94,10 +94,14 @@ for video models; see the Higgsfield model pages). `model_path` is restricted to
 
 Every generation is paid from the Higgsfield balance, so before submitting:
 
-- `hourly_limit` caps submissions per pusher per hour (default 10).
+- `hourly_limit` caps submissions per hour (default 10): per pusher on the account's own credentials, but over **all
+  pushers of the account** (pending ones included) on the platform credentials, so splitting pushes across pushers
+  does not multiply it.
 - `max_cost_usd` refuses a generation whose Higgsfield estimate is higher.
 - `daily_budget_usd` refuses it when today's estimated spend of the account (tagged media rows, excluding failed /
   nsfw / canceled ones) plus this one would exceed the budget.
+- The limit and budget checks and the reservation of the new generation run under a per-account lock (`Cache::lock`,
+  needs a cache driver with locks: file, redis, database), so parallel pushes cannot all pass the same check.
 - If a budget is set and Higgsfield returns no estimate, the generation is refused, not run unchecked.
 
 Failed, NSFW and canceled-before-start requests are not charged by Higgsfield.

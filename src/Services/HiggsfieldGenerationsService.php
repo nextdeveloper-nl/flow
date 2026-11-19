@@ -175,6 +175,20 @@ class HiggsfieldGenerationsService
     }
 
     /**
+     * Higgsfield generations this account started in the last hour, over all its pushers, pending and submitted
+     * ones included. Failed, NSFW and canceled generations are not charged and do not count.
+     */
+    public static function generationsInLastHour(int $accountId): int
+    {
+        return Media::withoutGlobalScopes()
+            ->whereRaw("tags @> ARRAY['" . self::TAG . "']::text[]")
+            ->where('iam_account_id', $accountId)
+            ->where('created_at', '>=', now()->subHour())
+            ->whereRaw("COALESCE(custom_properties->>'status', '') NOT IN ('failed', 'nsfw', 'canceled')")
+            ->count();
+    }
+
+    /**
      * Records the generation (placeholder row) and submits it to Higgsfield. Safe to call again for the same
      * pusher log: an already submitted generation is returned as it is, and a resubmission after a crash
      * between the two steps carries the same Idempotency-Key, so Higgsfield returns the original request.
