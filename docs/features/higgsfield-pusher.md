@@ -35,7 +35,9 @@ Flow automation -> pusher `higgsfield` -> Higgsfield API (submit)
    `POST /public/flow/higgsfield/webhook/{generation_id}` (the media row's uuid). The signature (Standard Webhooks)
    is verified, then `HiggsfieldFinalizeJob` reads the final status from the API, downloads the file to our own
    storage (Higgsfield deletes its copies after at least 7 days) and fills the media row.
-4. If no webhook arrives, `HiggsfieldPollJob` checks the status 90 s after submission and then at growing intervals
+4. The webhook is optional. It is only announced to Higgsfield when a webhook secret is configured and `APP_URL`
+   is a public `https://` address; otherwise the generation relies on polling alone (result about 1.5-3 minutes after
+   submission instead of seconds). If no webhook arrives, `HiggsfieldPollJob` checks the status 90 s after submission and then at growing intervals
    (60 s up to 5 min, 26 checks, about two hours) and finishes the generation itself. After the deadline the
    generation is marked `failed` ("Timed out ...").
 

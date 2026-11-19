@@ -66,6 +66,22 @@ class HiggsfieldGenerationsService
     }
 
     /**
+     * Webhook address to hand to Higgsfield, or null when webhooks cannot work and the poller does the job alone:
+     * no webhook secret is configured (we could not verify a delivery) or the app URL is not a public https address.
+     * Not announcing a webhook we cannot receive also keeps Higgsfield from trying (and failing) to deliver to it.
+     */
+    public static function webhookUrlFor(?ExternalServices $service, string $mediaUuid): ?string
+    {
+        $secret = $service ? (string) $service->refresh_token : (string) config('higgsfield.webhook_secret');
+
+        if ($secret === '' || !str_starts_with((string) config('app.url'), 'https://')) {
+            return null;
+        }
+
+        return self::webhookUrl($mediaUuid);
+    }
+
+    /**
      * The Higgsfield credentials row of this account, or null when the pusher uses the platform credentials
      * from the environment (HIGGSFIELD_API_KEY_ID / HIGGSFIELD_API_KEY_SECRET / HIGGSFIELD_WEBHOOK_SECRET).
      *
@@ -221,7 +237,7 @@ class HiggsfieldGenerationsService
                 $modelPath,
                 $body,
                 (string) $log->uuid,
-                self::webhookUrl((string) $media->uuid)
+                self::webhookUrlFor($service, (string) $media->uuid)
             );
         } catch (HiggsfieldException $e) {
             self::fail($media, self::STATUS_FAILED, $e->getMessage());
