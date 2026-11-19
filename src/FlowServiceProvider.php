@@ -9,6 +9,7 @@ use NextDeveloper\Flow\Console\Commands\SyncStageProbabilitiesCommand;
 use NextDeveloper\Flow\Console\Commands\CheckSlaBreachesCommand;
 use NextDeveloper\Flow\Console\Commands\RebuildBoardCommand;
 use NextDeveloper\Flow\Pushers\Drivers\FlowStagePusher;
+use NextDeveloper\Flow\Pushers\Drivers\HiggsfieldPusher;
 
 /**
  * Class IAASServiceProvider
@@ -34,6 +35,8 @@ class FlowServiceProvider extends AbstractServiceProvider {
         $this->loadViewsFrom($this->dir.'/../resources/views', 'Flow');
 
         PusherFactory::register('flow_stage', FlowStagePusher::class);
+        // Generates images/videos with Higgsfield for a Flow item (async: webhook + polling fallback).
+        PusherFactory::register('higgsfield', HiggsfieldPusher::class);
 
 //        $this->bootErrorHandler();
         $this->bootChannelRoutes();
@@ -51,6 +54,8 @@ class FlowServiceProvider extends AbstractServiceProvider {
         $this->registerCommands();
 
         $this->mergeConfigFrom(__DIR__.'/../config/flow.php', 'flow');
+        // Higgsfield credentials and settings (env driven), see config/higgsfield.php
+        $this->mergeConfigFrom(__DIR__.'/../config/higgsfield.php', 'higgsfield');
     }
 
     /**
