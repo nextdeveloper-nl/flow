@@ -27,9 +27,12 @@ use NextDeveloper\Flow\Services\HiggsfieldGenerationsService;
  *   id / flow_item_id  - UUID of the Flow item the result is attached to
  *   anything else      - available to the {{ placeholders }} of prompt_template and params
  *
+ * Credentials: the environment (HIGGSFIELD_API_KEY_ID, HIGGSFIELD_API_KEY_SECRET, HIGGSFIELD_WEBHOOK_SECRET) are the
+ * platform credentials. A pusher may instead name its own account's credentials with the optional
+ * provider_metadata key external_service_id (a Commons ExternalServices row: configuration.key_id, encrypted
+ * token = key secret, refresh_token = webhook secret).
+ *
  * Required provider_metadata keys:
- *   external_service_id - UUID of the Commons ExternalServices row holding the Higgsfield API key
- *                         (configuration.key_id, encrypted token = key secret, refresh_token = webhook secret)
  *   model_path          - Higgsfield model endpoint, e.g. higgsfield-ai/soul/standard
  *   media_type          - image | video
  *   prompt_template     - prompt with {{ placeholders }}, e.g. "Poster for {{ object.name }}"
@@ -68,7 +71,7 @@ class HiggsfieldPusher extends AbstractPusher
             'supports_auth'         => false,
             'supports_auto_disable' => true,
             'metadata_fields'       => [
-                ['key' => 'external_service_id', 'type' => 'uuid', 'required' => true, 'label' => 'Higgsfield credentials', 'references' => 'NextDeveloper\\Commons\\Database\\Models\\ExternalServices'],
+                ['key' => 'external_service_id', 'type' => 'uuid', 'required' => false, 'label' => 'Own Higgsfield credentials (empty = platform credentials)', 'references' => 'NextDeveloper\\Commons\\Database\\Models\\ExternalServices'],
                 ['key' => 'model_path', 'type' => 'string', 'required' => true, 'label' => 'Model path (e.g. higgsfield-ai/soul/standard)'],
                 ['key' => 'media_type', 'type' => 'enum', 'required' => true, 'label' => 'Media type', 'options' => ['image', 'video'], 'default' => 'image'],
                 ['key' => 'prompt_template', 'type' => 'text', 'required' => true, 'label' => 'Prompt (supports {{ placeholders }} from the item payload)'],
@@ -87,8 +90,8 @@ class HiggsfieldPusher extends AbstractPusher
     {
         $errors = [];
 
-        if (!is_string($metadata['external_service_id'] ?? null) || !\Illuminate\Support\Str::isUuid($metadata['external_service_id'])) {
-            $errors['provider_metadata.external_service_id'] = ['external_service_id must be the uuid of the Higgsfield credentials.'];
+        if (($metadata['external_service_id'] ?? '') !== '' && (!is_string($metadata['external_service_id']) || !\Illuminate\Support\Str::isUuid($metadata['external_service_id']))) {
+            $errors['provider_metadata.external_service_id'] = ['external_service_id must be the uuid of the Higgsfield credentials, or empty to use the platform credentials.'];
         }
 
         try {
@@ -188,7 +191,7 @@ class HiggsfieldPusher extends AbstractPusher
 
         try {
             $service = HiggsfieldGenerationsService::externalServiceFor(
-                (string) ($metadata['external_service_id'] ?? ''),
+                $metadata['external_service_id'] ?? null,
                 (int) $pusher->iam_account_id
             );
 

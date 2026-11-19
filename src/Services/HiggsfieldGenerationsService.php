@@ -66,13 +66,20 @@ class HiggsfieldGenerationsService
     }
 
     /**
-     * The Higgsfield credentials row of this account. The pusher only stores the row's uuid; the key id sits in
-     * `configuration.key_id`, the key secret in the encrypted `token`. A row of another account is never usable.
+     * The Higgsfield credentials row of this account, or null when the pusher uses the platform credentials
+     * from the environment (HIGGSFIELD_API_KEY_ID / HIGGSFIELD_API_KEY_SECRET / HIGGSFIELD_WEBHOOK_SECRET).
      *
-     * @throws HiggsfieldException when the row is missing, foreign, or incomplete
+     * A per-account row holds the key id in `configuration.key_id`, the key secret in the encrypted `token` and the
+     * webhook secret in the encrypted `refresh_token`. A row of another account is never usable.
+     *
+     * @throws HiggsfieldException when a row is requested but missing or foreign
      */
-    public static function externalServiceFor(string $externalServiceUuid, int $accountId): ExternalServices
+    public static function externalServiceFor(?string $externalServiceUuid, int $accountId): ?ExternalServices
     {
+        if ($externalServiceUuid === null || $externalServiceUuid === '') {
+            return null;
+        }
+
         $service = ExternalServices::withoutGlobalScopes()->where('uuid', $externalServiceUuid)->first();
 
         if (!$service || (int) $service->iam_account_id !== $accountId) {
@@ -83,17 +90,22 @@ class HiggsfieldGenerationsService
     }
 
     /**
-     * HTTP client for a credentials row.
+     * HTTP client for a credentials row, or for the platform credentials of the environment when there is no row.
      *
      * @throws HiggsfieldException when key id or secret is missing
      */
-    public static function clientFor(ExternalServices $service): HiggsfieldClient
+    public static function clientFor(?ExternalServices $service): HiggsfieldClient
     {
-        $keyId = (string) data_get($service->configuration, 'key_id');
-        $secret = self::decryptOrRaw($service->token);
+        $keyId = $service ? (string) data_get($service->configuration, 'key_id') : (string) config('higgsfield.key_id');
+        $secret = $service ? self::decryptOrRaw($service->token) : (string) config('higgsfield.key_secret');
 
         if ($keyId === '' || $secret === '') {
-            throw new HiggsfieldException('Higgsfield credentials are incomplete: key_id in configuration and the key secret in token are required.', 422);
+            throw new HiggsfieldException(
+                $service
+                    ? 'Higgsfield credentials are incomplete: key_id in configuration and the key secret in token are required.'
+                    : 'Higgsfield is not configured: set HIGGSFIELD_API_KEY_ID and HIGGSFIELD_API_KEY_SECRET, or give the pusher an external_service_id.',
+                422
+            );
         }
 
         return new HiggsfieldClient($keyId, $secret);
@@ -136,7 +148,7 @@ class HiggsfieldGenerationsService
         Pushers $pusher,
         PusherLogs $log,
         Items $item,
-        ExternalServices $service,
+        ?ExternalServices $service,
         string $modelPath,
         string $mediaType,
         array $body,
@@ -196,9 +208,12 @@ class HiggsfieldGenerationsService
         $media = Media::withoutGlobalScopes()->where('uuid', $mediaUuid)->first();
 
         try {
-            $service = ExternalServices::withoutGlobalScopes()->where('uuid', $props['external_service_id'] ?? null)->first();
+            // No row recorded means the generation was submitted with the platform credentials of the environment.
+            $service = empty($props['external_service_id'])
+                ? null
+                : ExternalServices::withoutGlobalScopes()->where('uuid', $props['external_service_id'])->first();
 
-            if (!$service) {
+            if (!empty($props['external_service_id']) && !$service) {
                 throw new HiggsfieldException('Higgsfield credentials row no longer exists.', 422);
             }
 
@@ -247,7 +262,7 @@ class HiggsfieldGenerationsService
                 throw new \RuntimeException('Output download answered HTTP ' . $download->status());
             }
 
-            MediaService::attachFile((string) $media->uuid, $tmp, config('flow.higgsfield.storage'), [
+            MediaService::attachFile((string) $media->uuid, $tmp, config('higgsfield.storage'), [
                 'status'            => self::STATUS_COMPLETED,
                 'completed_at'      => now()->toIso8601String(),
                 'result_expires_at' => $remote['expires_at'] ?? null,
@@ -315,12 +330,16 @@ class HiggsfieldGenerationsService
             return 404;
         }
 
-        $service = ExternalServices::withoutGlobalScopes()
-            ->where('uuid', data_get($media->custom_properties, 'external_service_id'))
-            ->first();
+        $serviceUuid = data_get($media->custom_properties, 'external_service_id');
+        $service = $serviceUuid
+            ? ExternalServices::withoutGlobalScopes()->where('uuid', $serviceUuid)->first()
+            : null;
 
-        // The webhook secret is shown once in the Higgsfield console; it lives in the encrypted refresh_token.
-        $secret = $service ? (string) $service->refresh_token : '';
+        // The webhook secret is shown once in the Higgsfield console. Per-account rows keep it in the encrypted
+        // refresh_token; without a row the platform secret from the environment is used.
+        $secret = $serviceUuid
+            ? (string) ($service?->refresh_token ?? '')
+            : (string) config('higgsfield.webhook_secret');
 
         if ($secret === '' || !self::verifySignature(
             $secret,
@@ -410,7 +429,7 @@ class HiggsfieldGenerationsService
         Pushers $pusher,
         PusherLogs $log,
         Items $item,
-        ExternalServices $service,
+        ?ExternalServices $service,
         string $modelPath,
         string $mediaType,
         array $body,
@@ -435,7 +454,7 @@ class HiggsfieldGenerationsService
                 'status'              => self::STATUS_PENDING,
                 'pusher_id'           => $pusher->uuid,
                 'pusher_log_id'       => (int) $log->id,
-                'external_service_id' => $service->uuid,
+                'external_service_id' => $service?->uuid,
                 'estimated_usd'       => $estimatedUsd,
                 'created_at'          => now()->toIso8601String(),
             ],

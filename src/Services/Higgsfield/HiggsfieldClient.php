@@ -26,11 +26,11 @@ class HiggsfieldClient
     }
 
     /**
-     * Base URL of the API; overridable through config('flow.higgsfield.base_url') (for tests or a proxy).
+     * Base URL of the API; overridable through config('higgsfield.base_url') (for tests or a proxy).
      */
     public function baseUrl(): string
     {
-        return rtrim($this->baseUrl ?: config('flow.higgsfield.base_url', self::DEFAULT_BASE_URL), '/');
+        return rtrim($this->baseUrl ?: config('higgsfield.base_url', self::DEFAULT_BASE_URL), '/');
     }
 
     /**

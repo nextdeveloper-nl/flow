@@ -46,17 +46,27 @@ webhook or a poll racing the webhook stores the result only once.
 
 1. In the Higgsfield console create an API key (key id + secret) and top up the **API balance**. It is separate from
    the website plan: web credits do not pay for API calls.
-2. Create a Commons *external service* row for the account:
-   - `configuration.key_id` = the key id
-   - `token` = the key secret (encrypted on save)
-   - `refresh_token` = the webhook secret (`whsec_...`, from the console Settings; encrypted on save)
+2. Platform credentials go in the environment (see `config/higgsfield.php`):
+
+   ```
+   HIGGSFIELD_API_KEY_ID=
+   HIGGSFIELD_API_KEY_SECRET=
+   HIGGSFIELD_WEBHOOK_SECRET=     # whsec_..., console Settings; needed for the webhook, polling works without it
+   # optional
+   HIGGSFIELD_BASE_URL=https://api.higgsfield.ai
+   HIGGSFIELD_STORAGE=            # disk name, 'local', or empty for the Commons default
+   ```
+
+   A pusher may instead use its own account's credentials: a Commons *external service* row with
+   `configuration.key_id`, `token` = key secret and `refresh_token` = webhook secret (both encrypted on save), referenced
+   by the optional `external_service_id`. Without `external_service_id` the platform credentials are used.
 3. Create a pusher with provider `higgsfield` and attach it to a Flow automation. The pusher `url` is not used.
 
 ```json
 {
   "provider": "higgsfield",
   "provider_metadata": {
-    "external_service_id": "<uuid of the external service>",
+    "external_service_id": "<optional: uuid of the account's own credentials>",
     "model_path": "higgsfield-ai/soul/standard",
     "media_type": "image",
     "prompt_template": "Product poster for {{ object.name }}, clean studio light",
@@ -75,10 +85,6 @@ inside `params`. A prompt that renders empty is refused.
 `params` is passed to the model as is, so each model's own fields apply (for example `duration`, `image_urls`
 for video models; see the Higgsfield model pages). `model_path` is restricted to a plain relative path on
 `https://api.higgsfield.ai`.
-
-Optional config in `config/flow.php`:
-`higgsfield.base_url` (default `https://api.higgsfield.ai`) and `higgsfield.storage` (storage target for the
-downloaded files: a disk name from `config/filesystems.php`, `local`, or empty for the Commons default).
 
 ## Cost guards
 

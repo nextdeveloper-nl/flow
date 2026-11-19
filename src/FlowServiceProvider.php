@@ -54,6 +54,8 @@ class FlowServiceProvider extends AbstractServiceProvider {
         $this->registerCommands();
 
         $this->mergeConfigFrom(__DIR__.'/../config/flow.php', 'flow');
+        // Higgsfield credentials and settings (env driven), see config/higgsfield.php
+        $this->mergeConfigFrom(__DIR__.'/../config/higgsfield.php', 'higgsfield');
     }
 
     /**
