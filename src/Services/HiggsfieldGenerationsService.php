@@ -77,6 +77,14 @@ class HiggsfieldGenerationsService
     public static function externalServiceFor(?string $externalServiceUuid, int $accountId): ?ExternalServices
     {
         if ($externalServiceUuid === null || $externalServiceUuid === '') {
+            // The platform credentials spend our own Higgsfield balance: only allow-listed accounts may use them.
+            if (!self::platformCredentialsAllowed($accountId)) {
+                throw new HiggsfieldException(
+                    'This account may not use the platform Higgsfield credentials. Set external_service_id to your own credentials.',
+                    403
+                );
+            }
+
             return null;
         }
 
@@ -87,6 +95,35 @@ class HiggsfieldGenerationsService
         }
 
         return $service;
+    }
+
+    /**
+     * Whether the account is allow-listed (HIGGSFIELD_PLATFORM_ACCOUNT_IDS, account uuids) to spend the platform credentials.
+     */
+    public static function platformCredentialsAllowed(int $accountId): bool
+    {
+        $uuid = Accounts::withoutGlobalScopes()->where('id', $accountId)->value('uuid');
+
+        return $uuid !== null && in_array((string) $uuid, (array) config('higgsfield.platform_account_ids', []), true);
+    }
+
+    /**
+     * Limits for a pusher that runs on the platform credentials: the pusher's own values may only lower the
+     * platform ceilings, and an unset value falls back to the ceiling (a tenant cannot leave a limit off).
+     *
+     * @return array{hourly_limit: int, max_cost_usd: float, daily_budget_usd: float}
+     */
+    public static function platformLimits(array $metadata): array
+    {
+        $cap = fn (string $key, string $config) => ($metadata[$key] ?? '') !== '' && is_numeric($metadata[$key])
+            ? min((float) $metadata[$key], (float) config($config))
+            : (float) config($config);
+
+        return [
+            'hourly_limit'     => (int) $cap('hourly_limit', 'higgsfield.platform_hourly_limit'),
+            'max_cost_usd'     => $cap('max_cost_usd', 'higgsfield.platform_max_cost_usd'),
+            'daily_budget_usd' => $cap('daily_budget_usd', 'higgsfield.platform_daily_budget_usd'),
+        ];
     }
 
     /**

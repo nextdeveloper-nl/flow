@@ -162,7 +162,28 @@ class HiggsfieldPusher extends AbstractPusher
             return PusherResult::ok(200, 'Skipped: generation already submitted: ' . $existing->uuid);
         }
 
-        if (!$this->isWithinLimit($pusher)) {
+        // Credentials first: it decides which limits apply. The platform credentials are only for allow-listed
+        // accounts and always run under platform-side ceilings the pusher's own metadata cannot raise.
+        try {
+            $service = HiggsfieldGenerationsService::externalServiceFor(
+                $metadata['external_service_id'] ?? null,
+                (int) $pusher->iam_account_id
+            );
+        } catch (HiggsfieldException $e) {
+            Log::warning('[HiggsfieldPusher] Credentials refused.', [
+                'pusher_log_id' => $log->id,
+                'http_status'   => $e->httpStatus,
+                'error'         => $e->getMessage(),
+            ]);
+
+            return PusherResult::fail($e->httpStatus ?: 422, $e->getMessage());
+        }
+
+        if ($service === null) {
+            $metadata = array_merge($metadata, HiggsfieldGenerationsService::platformLimits($metadata));
+        }
+
+        if (!$this->isWithinLimit($pusher, (int) ($metadata['hourly_limit'] ?? self::DEFAULT_HOURLY_LIMIT))) {
             $limit = (int) ($metadata['hourly_limit'] ?? self::DEFAULT_HOURLY_LIMIT);
 
             Log::warning('[HiggsfieldPusher] Hourly generation limit reached - skipping.', [
@@ -190,11 +211,6 @@ class HiggsfieldPusher extends AbstractPusher
         $mediaType = (string) ($metadata['media_type'] ?? 'image');
 
         try {
-            $service = HiggsfieldGenerationsService::externalServiceFor(
-                $metadata['external_service_id'] ?? null,
-                (int) $pusher->iam_account_id
-            );
-
             $client = HiggsfieldGenerationsService::clientFor($service);
 
             // Spend guards run before anything is submitted, using Higgsfield's own estimate for this exact request.
@@ -279,10 +295,8 @@ class HiggsfieldPusher extends AbstractPusher
         return null;
     }
 
-    private function isWithinLimit(Pushers $pusher): bool
+    private function isWithinLimit(Pushers $pusher, int $limit): bool
     {
-        $limit = (int) ($pusher->provider_metadata['hourly_limit'] ?? self::DEFAULT_HOURLY_LIMIT);
-
         $recentCount = PusherLogs::withoutGlobalScopes()
             ->where('common_pusher_id', $pusher->id)
             ->where('status', 'completed')

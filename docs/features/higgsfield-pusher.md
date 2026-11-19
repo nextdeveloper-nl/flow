@@ -52,14 +52,18 @@ webhook or a poll racing the webhook stores the result only once.
    HIGGSFIELD_API_KEY_ID=
    HIGGSFIELD_API_KEY_SECRET=
    HIGGSFIELD_WEBHOOK_SECRET=     # whsec_..., console Settings; needed for the webhook, polling works without it
-   # optional
+   HIGGSFIELD_PLATFORM_ACCOUNT_IDS=   # account uuids (comma separated) allowed to spend the platform key
+   # optional: HIGGSFIELD_PLATFORM_HOURLY_LIMIT=10  HIGGSFIELD_PLATFORM_MAX_COST_USD=1  HIGGSFIELD_PLATFORM_DAILY_BUDGET_USD=5
    HIGGSFIELD_BASE_URL=https://api.higgsfield.ai
    HIGGSFIELD_STORAGE=            # disk name, 'local', or empty for the Commons default
    ```
 
    A pusher may instead use its own account's credentials: a Commons *external service* row with
    `configuration.key_id`, `token` = key secret and `refresh_token` = webhook secret (both encrypted on save), referenced
-   by the optional `external_service_id`. Without `external_service_id` the platform credentials are used.
+   by the optional `external_service_id`. Without `external_service_id` the platform credentials are used, but **only for accounts listed in
+   `HIGGSFIELD_PLATFORM_ACCOUNT_IDS`**; any other account is refused (403) and must bring its own credentials. Pushers on
+   platform credentials always run under the platform ceilings (`HIGGSFIELD_PLATFORM_*`): the pusher's own
+   `hourly_limit` / `max_cost_usd` / `daily_budget_usd` can only lower them, never raise them or leave them off.
 3. Create a pusher with provider `higgsfield` and attach it to a Flow automation. The pusher `url` is not used.
 
 ```json
