@@ -17,7 +17,7 @@ class StagesCreateRequest extends AbstractFormRequest
         'name' => 'required|string',
         'color' => 'nullable|string',
         'position' => 'integer',
-        'probability' => 'integer',
+        'probability' => 'integer|min:0|max:100',
         'sla_days' => 'nullable|integer',
         'is_won' => 'boolean',
         'is_lost' => 'boolean',
