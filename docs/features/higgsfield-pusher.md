@@ -92,6 +92,34 @@ inside `params`. A prompt that renders empty is refused.
 for video models; see the Higgsfield model pages). `model_path` is restricted to a plain relative path on
 `https://api.higgsfield.ai`.
 
+## On-demand generation (no automation)
+
+A person can generate directly through the API. Higgsfield is only ever called from the server, never the browser.
+
+| endpoint | purpose |
+|---|---|
+| `POST /flow/higgsfield/estimate` | cost of a request (`usd`, `credits`), nothing is submitted or charged |
+| `POST /flow/higgsfield/generate` | submits the generation and returns its media row |
+
+Body (both): `model_path`, `media_type` (`image`\|`video`), `prompt`, optional `params` (object passed to the model, 8 KB
+at most), optional `external_service_id` (own credentials; empty = platform credentials, allow-listed accounts only),
+optional `max_cost_usd` (a per-generation ceiling for this request; on the platform credentials it can only lower the
+platform ceiling).
+
+`generate` returns the placeholder media row (the standard Media transformer): `custom_properties.status` is
+`pending`/`submitted` and `custom_properties.estimated_usd` holds the cost. The row has **no `object_type`/`object_id`**
+(free-standing), `collection_name` `higgsfield`, tags `higgsfield` + `higgsfield:image|video`, and
+`custom_properties.on_demand = true`. It is finished by the same webhook / polling pipeline as pushed generations;
+poll `GET /commons/media/{id}` until `custom_properties.status` is `completed` (or `failed`/`nsfw`/`canceled`, with
+`custom_properties.error`). List generations with `GET /commons/media?collection_name=higgsfield&tags=higgsfield`.
+
+Guards are the pusher's: platform credentials only for allow-listed accounts and then under the platform ceilings
+(account-wide hourly limit, per-generation and daily USD caps), the cost estimate before submitting, and the
+per-account lock around check + reservation. With the account's own credentials there are no ceilings of ours, only
+`max_cost_usd` when given. Errors use the standard error response: 403 not allowed / empty Higgsfield balance, 422
+budget or input refused, 429 hourly limit or another submission in progress, 502 Higgsfield unreachable or our key
+rejected.
+
 ## Cost guards
 
 Every generation is paid from the Higgsfield balance, so before submitting:
@@ -123,6 +151,7 @@ Failed, NSFW and canceled-before-start requests are not charged by Higgsfield.
 - `src/Pushers/Drivers/HiggsfieldPusher.php` - the driver (registered in `FlowServiceProvider`)
 - `src/Services/Higgsfield/HiggsfieldClient.php` - HTTP client (estimate, submit, status, cancel)
 - `src/Services/HiggsfieldGenerationsService.php` - all writes and decisions, webhook signature check
+- `src/Http/Controllers/Higgsfield/HiggsfieldController.php`, `src/Http/Requests/Higgsfield/HiggsfieldGenerateRequest.php` - on-demand endpoints
 - `src/Jobs/HiggsfieldPollJob.php`, `src/Jobs/HiggsfieldFinalizeJob.php` - queue `flow`
 - host app: `App\Http\Controllers\Flow\HiggsfieldWebhookController` and the public route in `routes/api.php`
 - Commons: `MediaService::createPending()` / `attachFile()`

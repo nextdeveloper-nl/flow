@@ -1,6 +1,14 @@
 <?php
 
 Route::prefix('flow')->group(function () {
+// On-demand Higgsfield image/video generation for a person (no Flow automation).
+Route::prefix('higgsfield')->group(
+    function () {
+        Route::post('/estimate', 'Higgsfield\HiggsfieldController@estimate');
+        Route::post('/generate', 'Higgsfield\HiggsfieldController@generate');
+    }
+);
+
 Route::prefix('pipelines')->group(
     function () {
         Route::get('/', 'Pipelines\PipelinesController@index');
