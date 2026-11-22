@@ -231,7 +231,7 @@ class HiggsfieldPusher extends AbstractPusher
                     return PusherResult::fail(429, 'Hourly generation limit of ' . $limit . ' reached. Skipping.');
                 }
 
-                $guard = $this->checkBudget($metadata, $usd, (int) $pusher->iam_account_id);
+                $guard = HiggsfieldGenerationsService::budgetGuard($metadata, $usd, (int) $pusher->iam_account_id);
 
                 if ($guard !== null) {
                     return PusherResult::fail(422, $guard);
@@ -282,34 +282,6 @@ class HiggsfieldPusher extends AbstractPusher
 
             return PusherResult::fail(500, 'Failed to submit generation: ' . $e->getMessage());
         }
-    }
-
-    /**
-     * Returns the reason a generation must not be submitted, or null when it is within the configured budgets.
-     */
-    private function checkBudget(array $metadata, ?float $usd, int $accountId): ?string
-    {
-        $max = $metadata['max_cost_usd'] ?? null;
-
-        // A limit is configured but Higgsfield gave no estimate: refuse rather than spend unchecked.
-        if (($max !== null && $max !== '') || (($metadata['daily_budget_usd'] ?? '') !== '')) {
-            if ($usd === null) {
-                return 'Higgsfield returned no cost estimate, so the budget cannot be checked.';
-            }
-        }
-
-        if ($max !== null && $max !== '' && $usd > (float) $max) {
-            return 'Estimated cost ' . $usd . ' USD is above max_cost_usd ' . $max . '.';
-        }
-
-        $daily = $metadata['daily_budget_usd'] ?? null;
-
-        if ($daily !== null && $daily !== ''
-            && HiggsfieldGenerationsService::spentTodayUsd($accountId) + $usd > (float) $daily) {
-            return 'Daily Higgsfield budget of ' . $daily . ' USD would be exceeded.';
-        }
-
-        return null;
     }
 
     /**

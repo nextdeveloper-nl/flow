@@ -2,6 +2,7 @@
 
 namespace NextDeveloper\Flow\Services;
 
+use Illuminate\Contracts\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -205,6 +206,151 @@ class HiggsfieldGenerationsService
     }
 
     /**
+     * Returns the reason a generation must not be submitted, or null when it is within the budgets of $limits
+     * (max_cost_usd, daily_budget_usd; both optional). A configured limit with no cost estimate refuses the generation
+     * rather than letting it run unchecked.
+     */
+    public static function budgetGuard(array $limits, ?float $usd, int $accountId): ?string
+    {
+        $max = $limits['max_cost_usd'] ?? null;
+        $daily = $limits['daily_budget_usd'] ?? null;
+        $hasMax = $max !== null && $max !== '';
+        $hasDaily = $daily !== null && $daily !== '';
+
+        if (($hasMax || $hasDaily) && $usd === null) {
+            return 'Higgsfield returned no cost estimate, so the budget cannot be checked.';
+        }
+
+        if ($hasMax && $usd > (float) $max) {
+            return 'Estimated cost ' . $usd . ' USD is above max_cost_usd ' . $max . '.';
+        }
+
+        if ($hasDaily && self::spentTodayUsd($accountId) + $usd > (float) $daily) {
+            return 'Daily Higgsfield budget of ' . $daily . ' USD would be exceeded.';
+        }
+
+        return null;
+    }
+
+    /**
+     * Cost of an on-demand request, without submitting anything. Runs the same credential rules as a real request
+     * (platform credentials only for allow-listed accounts) so the UI learns early that it would be refused.
+     *
+     * @return array{usd: ?string, credits: ?string, platform_credentials: bool, limits: ?array}
+     * @throws HiggsfieldException
+     */
+    public static function estimateOnDemand(int $accountId, ?string $externalServiceUuid, string $modelPath, string $prompt, array $params): array
+    {
+        $modelPath = HiggsfieldClient::cleanPath($modelPath);
+        $service = self::externalServiceFor($externalServiceUuid, $accountId);
+        $estimate = self::clientFor($service)->estimate($modelPath, self::onDemandBody($prompt, $params));
+
+        return [
+            'usd'                  => isset($estimate['usd']) ? (string) $estimate['usd'] : null,
+            'credits'              => isset($estimate['credits']) ? (string) $estimate['credits'] : null,
+            'platform_credentials' => $service === null,
+            'limits'               => $service === null ? self::platformLimits([]) : null,
+        ];
+    }
+
+    /**
+     * Generates an image/video for a person directly (no Flow automation) and returns the placeholder media row,
+     * which has no object (free-standing) and is finished later by the webhook or the poller like any other
+     * generation. The guards are the pusher's: platform credentials only for allow-listed accounts, and then under
+     * the platform ceilings (hourly, per generation, daily; $maxCostUsd can only lower the per-generation one). With the
+     * account's own credentials the Higgsfield balance is the limit, plus $maxCostUsd when given.
+     *
+     * Check and reservation are one atomic step per account (the same lock the pusher takes), so parallel requests
+     * cannot all pass the same budget check.
+     *
+     * @throws HiggsfieldException with the HTTP status to answer with (403 not allowed, 422 refused, 429 limit)
+     */
+    public static function generateOnDemand(
+        int $accountId,
+        int $userId,
+        ?string $externalServiceUuid,
+        string $modelPath,
+        string $mediaType,
+        string $prompt,
+        array $params,
+        ?float $maxCostUsd = null
+    ): Media {
+        $modelPath = HiggsfieldClient::cleanPath($modelPath);
+
+        if (!in_array($mediaType, ['image', 'video'], true)) {
+            throw new HiggsfieldException('media_type must be image or video.', 422);
+        }
+
+        $service = self::externalServiceFor($externalServiceUuid, $accountId);
+        $body = self::onDemandBody($prompt, $params);
+
+        // Platform credentials: the ceilings apply and the request may only lower the per-generation one.
+        // Own credentials: no ceilings of ours, only what the request asks for.
+        $limits = $service === null
+            ? self::platformLimits($maxCostUsd !== null ? ['max_cost_usd' => $maxCostUsd] : [])
+            : ($maxCostUsd !== null ? ['max_cost_usd' => $maxCostUsd] : []);
+
+        $estimate = self::clientFor($service)->estimate($modelPath, $body);
+        $usd = isset($estimate['usd']) && is_numeric($estimate['usd']) ? (float) $estimate['usd'] : null;
+
+        $lock = Cache::lock('higgsfield:account:' . $accountId, 60);
+
+        try {
+            $lock->block(15);
+        } catch (LockTimeoutException) {
+            throw new HiggsfieldException('Another Higgsfield generation of this account is being submitted. Try again shortly.', 429);
+        }
+
+        try {
+            if ($service === null && self::generationsInLastHour($accountId) >= $limits['hourly_limit']) {
+                throw new HiggsfieldException('Hourly generation limit of ' . $limits['hourly_limit'] . ' reached.', 429);
+            }
+
+            $refusal = self::budgetGuard($limits, $usd, $accountId);
+
+            if ($refusal !== null) {
+                throw new HiggsfieldException($refusal, 422);
+            }
+
+            $media = self::insertPending(
+                $accountId,
+                $userId,
+                null,
+                ['on_demand' => true],
+                $service,
+                $modelPath,
+                $mediaType,
+                $body,
+                isset($estimate['usd']) ? (string) $estimate['usd'] : null
+            );
+
+            // The media uuid is the Idempotency-Key: one row, one Higgsfield request.
+            return self::submitPending($media, $service, $modelPath, $body, (string) $media->uuid);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    /**
+     * Request body for the model: the user's params with the prompt on top (a "prompt" inside params is ignored).
+     * The params size is bounded so a request cannot smuggle in an arbitrarily large payload.
+     */
+    private static function onDemandBody(string $prompt, array $params): array
+    {
+        if (strlen((string) json_encode($params)) > 8192) {
+            throw new HiggsfieldException('params is too large (8 KB at most).', 422);
+        }
+
+        $prompt = trim($prompt);
+
+        if ($prompt === '') {
+            throw new HiggsfieldException('prompt is required.', 422);
+        }
+
+        return array_merge($params, ['prompt' => $prompt]);
+    }
+
+    /**
      * Records the generation (placeholder row) and submits it to Higgsfield. Safe to call again for the same
      * pusher log: an already submitted generation is returned as it is, and a resubmission after a crash
      * between the two steps carries the same Idempotency-Key, so Higgsfield returns the original request.
@@ -224,6 +370,19 @@ class HiggsfieldGenerationsService
         $media = self::findForLog((int) $log->id)
             ?? self::createPending($pusher, $log, $item, $service, $modelPath, $mediaType, $body, $estimatedUsd);
 
+        // The pusher log uuid is the Idempotency-Key: a retried push of the same log can never create a second request.
+        return self::submitPending($media, $service, $modelPath, $body, (string) $log->uuid);
+    }
+
+    /**
+     * Sends an already recorded (placeholder) generation to Higgsfield and schedules the polling fallback. A row that
+     * was already submitted is returned as it is. Used by the pusher (key = pusher log uuid) and by the on-demand
+     * endpoint (key = the media uuid).
+     *
+     * @throws HiggsfieldException when Higgsfield refuses or cannot be reached (the row is marked failed)
+     */
+    public static function submitPending(Media $media, ?ExternalServices $service, string $modelPath, array $body, string $idempotencyKey): Media
+    {
         $props = (array) $media->custom_properties;
 
         if (!empty($props['request_id']) && ($props['status'] ?? null) !== self::STATUS_FAILED) {
@@ -236,7 +395,7 @@ class HiggsfieldGenerationsService
             $response = self::clientFor($service)->submit(
                 $modelPath,
                 $body,
-                (string) $log->uuid,
+                $idempotencyKey,
                 self::webhookUrlFor($service, (string) $media->uuid)
             );
         } catch (HiggsfieldException $e) {
@@ -489,8 +648,8 @@ class HiggsfieldGenerationsService
     }
 
     /**
-     * Creates the placeholder row. Ownership is set explicitly to the pusher's account and user: the code
-     * runs as the administrator inside queues and must not stamp the generation on the admin.
+     * Creates the placeholder row for a pushed generation. Ownership is set explicitly to the pusher's account and
+     * user: the code runs as the administrator inside queues and must not stamp the generation on the admin.
      */
     private static function createPending(
         Pushers $pusher,
@@ -502,12 +661,39 @@ class HiggsfieldGenerationsService
         array $body,
         ?string $estimatedUsd
     ): Media {
-        $account = Accounts::withoutGlobalScopes()->find($pusher->iam_account_id);
-        $user = Users::withoutGlobalScopes()->find($pusher->iam_user_id);
+        return self::insertPending(
+            (int) $pusher->iam_account_id,
+            (int) $pusher->iam_user_id,
+            (int) $item->id,
+            ['pusher_id' => $pusher->uuid, 'pusher_log_id' => (int) $log->id],
+            $service,
+            $modelPath,
+            $mediaType,
+            $body,
+            $estimatedUsd
+        );
+    }
 
-        $created = MediaService::createPending([
-            'object_type'       => Items::class,
-            'object_id'         => (int) $item->id,
+    /**
+     * Inserts the placeholder media row. $itemId null makes a free-standing generation (on-demand, no Flow item).
+     *
+     * @param array $extraProperties extra keys for custom_properties (pusher ids, or the on-demand marker)
+     */
+    private static function insertPending(
+        int $accountId,
+        int $userId,
+        ?int $itemId,
+        array $extraProperties,
+        ?ExternalServices $service,
+        string $modelPath,
+        string $mediaType,
+        array $body,
+        ?string $estimatedUsd
+    ): Media {
+        $account = Accounts::withoutGlobalScopes()->find($accountId);
+        $user = Users::withoutGlobalScopes()->find($userId);
+
+        $data = [
             'collection_name'   => self::COLLECTION,
             'name'              => 'Higgsfield ' . $mediaType . ' ' . now()->format('Y-m-d H:i'),
             'tags'              => [self::TAG, self::TAG . ':' . $mediaType],
@@ -516,18 +702,23 @@ class HiggsfieldGenerationsService
                 'media_type' => $mediaType,
                 'params'     => $body,
             ],
-            'custom_properties' => [
+            'custom_properties' => array_merge([
                 'source'              => 'higgsfield',
                 'status'              => self::STATUS_PENDING,
-                'pusher_id'           => $pusher->uuid,
-                'pusher_log_id'       => (int) $log->id,
                 'external_service_id' => $service?->uuid,
                 'estimated_usd'       => $estimatedUsd,
                 'created_at'          => now()->toIso8601String(),
-            ],
+            ], $extraProperties),
             'iam_account_id'    => $account?->uuid,
             'iam_user_id'       => $user?->uuid,
-        ]);
+        ];
+
+        if ($itemId !== null) {
+            $data['object_type'] = Items::class;
+            $data['object_id'] = $itemId;
+        }
+
+        $created = MediaService::createPending($data);
 
         return Media::withoutGlobalScopes()->where('uuid', $created->uuid)->firstOrFail();
     }
