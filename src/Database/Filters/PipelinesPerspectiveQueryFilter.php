@@ -261,6 +261,18 @@ class PipelinesPerspectiveQueryFilter extends AbstractQueryFilter
     }
 
 
+    public function responsibleIamUserId($value)
+    {
+            $responsibleIamUser = \NextDeveloper\IAM\Database\Models\Users::where('uuid', $value)->first();
+
+        if($responsibleIamUser) {
+            return $this->builder->where('responsible_iam_user_id', '=', $responsibleIamUser->id);
+        }
+
+        // An unknown person is responsible for nothing, rather than dropping the filter.
+        return $this->builder->whereRaw('1 = 0');
+    }
+
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
 
 

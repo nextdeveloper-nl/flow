@@ -7,10 +7,12 @@ use Illuminate\Cache\LockTimeoutException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use NextDeveloper\Commons\Common\Cache\CacheHelper;
+use NextDeveloper\Commons\Helpers\DatabaseHelper;
 use NextDeveloper\Commons\Database\GlobalScopes\LimitScope;
 use NextDeveloper\CRM\Database\Models\AccountsPerspective;
 use NextDeveloper\CRM\Database\Models\OpportunitiesPerspective;
 use NextDeveloper\CRM\Database\Models\Tasks;
+use NextDeveloper\IAM\Database\Models\AccountUsers;
 use NextDeveloper\IAM\Database\Models\Users;
 use NextDeveloper\Flow\Database\Models\ItemsPerspective;
 use NextDeveloper\Flow\Database\Models\StagesPerspective;
@@ -181,9 +183,11 @@ class PipelinesService extends AbstractPipelinesService
      * template (config('flow.pipeline_templates')). Unlike cloneFromTemplate(), this does not
      * read from a DB "is_template" row — the template definition itself lives in config.
      *
-     * @throws NotAllowedException if the template id does not exist in config.
+     * @param string|null $responsibleUuid uuid of the responsible person, a member of the current account (leo4#1399)
+     *
+     * @throws NotAllowedException if the template id does not exist in config, or the responsible person is not a member.
      */
-    public static function createFromTemplate(?string $templateId, ?string $name = null, ?string $kind = null): Pipelines
+    public static function createFromTemplate(?string $templateId, ?string $name = null, ?string $kind = null, ?string $responsibleUuid = null): Pipelines
     {
         if ($kind !== null && !in_array($kind, self::KINDS, true)) {
             throw new NotAllowedException('Unknown pipeline kind: ' . $kind);
@@ -202,8 +206,9 @@ class PipelinesService extends AbstractPipelinesService
 
         $accountId = UserHelper::currentAccount()->id;
         $userId    = UserHelper::me()->id;
+        $responsibleId = self::resolveResponsible($responsibleUuid, $accountId);
 
-        return DB::transaction(function () use ($template, $name, $kind, $accountId, $userId) {
+        return DB::transaction(function () use ($template, $name, $kind, $accountId, $userId, $responsibleId) {
             $pipeline = Pipelines::create([
                 'name'           => $name ?? $template['name'],
                 'description'    => $template['description'],
@@ -215,6 +220,7 @@ class PipelinesService extends AbstractPipelinesService
                 'is_active'      => true,
                 'iam_account_id' => $accountId,
                 'iam_user_id'    => $userId,
+                'responsible_iam_user_id' => $responsibleId,
             ]);
 
             foreach ($template['stages'] as $position => $stage) {
@@ -378,10 +384,40 @@ class PipelinesService extends AbstractPipelinesService
     }
 
     /**
-     * Updates the pipeline and drops its board snapshots.
+     * Creates a pipeline. A responsible person must be a member of the pipeline's account (leo4#1399).
+     *
+     * @throws NotAllowedException if the responsible person is not a member of the account.
+     */
+    public static function create(array $data)
+    {
+        if (array_key_exists('responsible_iam_user_id', $data)) {
+            $accountId = array_key_exists('iam_account_id', $data)
+                ? DatabaseHelper::uuidToId('\NextDeveloper\IAM\Database\Models\Accounts', $data['iam_account_id'])
+                : UserHelper::currentAccount()->id;
+
+            $data['responsible_iam_user_id'] = self::resolveResponsible($data['responsible_iam_user_id'], $accountId);
+        }
+
+        return parent::create($data);
+    }
+
+    /**
+     * Updates the pipeline and drops its board snapshots. A responsible person must be a member of
+     * the pipeline's own account (leo4#1399); null clears it.
+     *
+     * @throws NotAllowedException if the responsible person is not a member of the pipeline's account.
      */
     public static function update($id, array $data)
     {
+        if (array_key_exists('responsible_iam_user_id', $data)) {
+            // Scoped fetch, like parent::update(): a pipeline the user can not see throws there.
+            $pipeline = Pipelines::where('uuid', $id)->first();
+
+            $data['responsible_iam_user_id'] = $pipeline
+                ? self::resolveResponsible($data['responsible_iam_user_id'], $pipeline->iam_account_id)
+                : null;
+        }
+
         $model = parent::update($id, $data);
 
         self::invalidateBoard($model->uuid);
@@ -402,8 +438,60 @@ class PipelinesService extends AbstractPipelinesService
     }
 
     /**
-     * Cache key of a board snapshot: pipeline uuid + invalidation version + account.
+     * The user id to store as a pipeline's responsible person (leo4#1399), or null to clear it.
+     * The person must be a member of the pipeline's account (iam_account_user), so a pipeline is
+     * never assigned to someone outside its tenant.
+     *
+     * @param string|int|null $user uuid of the user (an integer id is accepted for internal callers)
+     * @param int|null        $accountId the pipeline's iam_account_id
+     *
+     * @throws NotAllowedException when the user does not exist or is not a member of the account.
      */
+    public static function resolveResponsible(string|int|null $user, ?int $accountId): ?int
+    {
+        if ($user === null || $user === '') {
+            return null;
+        }
+
+        $userId = is_int($user)
+            ? $user
+            : Users::withoutGlobalScopes()->where('uuid', $user)->whereNull('deleted_at')->value('id');
+
+        $isMember = $userId && $accountId && AccountUsers::withoutGlobalScopes()
+            ->where('iam_account_id', $accountId)
+            ->where('iam_user_id', $userId)
+            ->exists();
+
+        if (!$isMember) {
+            // Same message for an unknown user and an outsider, so it does not reveal who exists.
+            throw new NotAllowedException('The responsible person must be a member of this pipeline\'s account.');
+        }
+
+        return (int) $userId;
+    }
+
+    /**
+     * The responsible person of a pipeline for the board header (leo4#1399).
+     *
+     * @return array{id: string, fullname: string, email: string|null}|null
+     */
+    private static function boardResponsible(Pipelines $pipeline): ?array
+    {
+        if (!$pipeline->responsible_iam_user_id) {
+            return null;
+        }
+
+        $user = Users::withoutGlobalScopes()
+            ->where('id', $pipeline->responsible_iam_user_id)
+            ->first(['id', 'uuid', 'name', 'surname', 'email']);
+
+        return $user ? [
+            'id'       => $user->uuid,
+            'fullname' => trim($user->name.' '.$user->surname) ?: (string) $user->email,
+            'email'    => $user->email,
+        ] : null;
+    }
+
     /**
      * Task fields for the board, keyed by crm_tasks.id. Tasks the user may not see stay out,
      * so their cards render without task data, as opportunity cards do.
@@ -501,6 +589,9 @@ class PipelinesService extends AbstractPipelinesService
         return [$payload, $byItem];
     }
 
+    /**
+     * Cache key of a board snapshot: pipeline uuid + invalidation version + account.
+     */
     private static function boardCacheKey(string $pipelineUuid, int $accountId): string
     {
         $version = (int) Cache::get(CacheHelper::getKey('FlowBoard', $pipelineUuid, 'version'), 1);
@@ -657,6 +748,7 @@ class PipelinesService extends AbstractPipelinesService
 
         return [
             'pipeline' => app(PipelinesTransformer::class)->transform($pipeline),
+            'responsible' => self::boardResponsible($pipeline),
             'stages'   => $stagePayload,
             'campaign' => $campaign,
             'columns'  => $columns,

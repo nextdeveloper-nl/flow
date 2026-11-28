@@ -20,6 +20,8 @@ class PipelinesFromTemplateRequest extends AbstractFormRequest
             'template_id' => 'required_without:kind|nullable|string|in:'.implode(',', array_keys(config('flow.pipeline_templates', []))),
             'kind' => 'required_without:template_id|nullable|string|in:'.implode(',', PipelinesService::KINDS),
             'name' => 'nullable|string|max:255',
+            // Must be a member of the current account; PipelinesService checks that (leo4#1399).
+            'responsible_iam_user_id' => 'nullable|uuid',
         ];
     }
 
@@ -33,6 +35,7 @@ class PipelinesFromTemplateRequest extends AbstractFormRequest
             'template_id.in' => 'This pipeline template does not exist.',
             'kind.required_without' => 'Choose a template or a kind.',
             'kind.in' => 'The kind must be sales, marketing, project or custom.',
+            'responsible_iam_user_id.uuid' => 'Choose the responsible person from your team.',
         ];
     }
 }

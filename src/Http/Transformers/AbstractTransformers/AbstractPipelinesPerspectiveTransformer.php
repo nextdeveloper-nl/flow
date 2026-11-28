@@ -56,6 +56,10 @@ class AbstractPipelinesPerspectiveTransformer extends AbstractTransformer
     {
                                                 $iamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->iam_account_id)->first();
                                                             $iamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->iam_user_id)->first();
+        // Unscoped: the responsible person is another member of the pipeline's account (leo4#1399).
+        $responsibleIamUserId = $model->responsible_iam_user_id
+            ? \NextDeveloper\IAM\Database\Models\Users::withoutGlobalScopes()->where('id', $model->responsible_iam_user_id)->first()
+            : null;
 
         return $this->buildPayload(
             [
@@ -80,6 +84,8 @@ class AbstractPipelinesPerspectiveTransformer extends AbstractTransformer
             'active_item_count'  =>  $model->active_item_count,
             'won_item_count'  =>  $model->won_item_count,
             'lost_item_count'  =>  $model->lost_item_count,
+            'responsible_iam_user_id'  =>  $responsibleIamUserId ? $responsibleIamUserId->uuid : null,
+            'responsible_name'  =>  $model->responsible_name,
             ]
         );
     }

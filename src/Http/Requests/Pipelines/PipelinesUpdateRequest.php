@@ -21,6 +21,8 @@ class PipelinesUpdateRequest extends AbstractFormRequest
         'is_system' => 'boolean',
         'is_active' => 'boolean',
         'kind' => 'sometimes|string|in:sales,marketing,project,custom',
+        // Must be a member of the pipeline's account; PipelinesService checks that (leo4#1399).
+        'responsible_iam_user_id' => 'nullable|uuid',
         ];
     }
     // EDIT AFTER HERE - WARNING: ABOVE THIS LINE MAY BE REGENERATED AND YOU MAY LOSE CODE
