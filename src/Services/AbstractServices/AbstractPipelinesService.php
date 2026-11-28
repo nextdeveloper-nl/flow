@@ -200,6 +200,12 @@ class AbstractPipelinesService
                 $data['iam_user_id']
             );
         }
+        if (array_key_exists('responsible_iam_user_id', $data)) {
+            $data['responsible_iam_user_id'] = DatabaseHelper::uuidToId(
+                '\NextDeveloper\IAM\Database\Models\Users',
+                $data['responsible_iam_user_id']
+            );
+        }
 
         if(!array_key_exists('iam_user_id', $data)) {
             $data['iam_user_id']    = UserHelper::me()->id;
@@ -260,6 +266,12 @@ class AbstractPipelinesService
             $data['iam_user_id'] = DatabaseHelper::uuidToId(
                 '\NextDeveloper\IAM\Database\Models\Users',
                 $data['iam_user_id']
+            );
+        }
+        if (array_key_exists('responsible_iam_user_id', $data)) {
+            $data['responsible_iam_user_id'] = DatabaseHelper::uuidToId(
+                '\NextDeveloper\IAM\Database\Models\Users',
+                $data['responsible_iam_user_id']
             );
         }
 

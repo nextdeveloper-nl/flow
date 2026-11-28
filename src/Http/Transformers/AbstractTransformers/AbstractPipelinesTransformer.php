@@ -56,6 +56,10 @@ class AbstractPipelinesTransformer extends AbstractTransformer
     {
                                                 $iamAccountId = \NextDeveloper\IAM\Database\Models\Accounts::where('id', $model->iam_account_id)->first();
                                                             $iamUserId = \NextDeveloper\IAM\Database\Models\Users::where('id', $model->iam_user_id)->first();
+        // Unscoped: the responsible person is another member of the pipeline's account (leo4#1399).
+        $responsibleIamUserId = $model->responsible_iam_user_id
+            ? \NextDeveloper\IAM\Database\Models\Users::withoutGlobalScopes()->where('id', $model->responsible_iam_user_id)->first()
+            : null;
 
         return $this->buildPayload(
             [
@@ -70,6 +74,7 @@ class AbstractPipelinesTransformer extends AbstractTransformer
             'kind'  =>  $model->kind,
             'iam_account_id'  =>  $iamAccountId ? $iamAccountId->uuid : null,
             'iam_user_id'  =>  $iamUserId ? $iamUserId->uuid : null,
+            'responsible_iam_user_id'  =>  $responsibleIamUserId ? $responsibleIamUserId->uuid : null,
             'created_at'  =>  $model->created_at,
             'updated_at'  =>  $model->updated_at,
             'deleted_at'  =>  $model->deleted_at,

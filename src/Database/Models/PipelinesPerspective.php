@@ -36,6 +36,8 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property integer $active_item_count
  * @property integer $won_item_count
  * @property integer $lost_item_count
+ * @property integer $responsible_iam_user_id
+ * @property string $responsible_name
  */
 class PipelinesPerspective extends Model
 {
@@ -69,6 +71,8 @@ class PipelinesPerspective extends Model
             'active_item_count',
             'won_item_count',
             'lost_item_count',
+            'responsible_iam_user_id',
+            'responsible_name',
     ];
 
     /**
@@ -109,6 +113,8 @@ class PipelinesPerspective extends Model
     'active_item_count' => 'integer',
     'won_item_count' => 'integer',
     'lost_item_count' => 'integer',
+    'responsible_iam_user_id' => 'integer',
+    'responsible_name' => 'string',
     ];
 
     /**

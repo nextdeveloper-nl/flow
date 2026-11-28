@@ -23,7 +23,9 @@ SELECT fp.id,
     COALESCE(ic.lost_item_count, 0::bigint) AS lost_item_count,
     fp.kind,
     camp.uuid AS campaign_id,
-    camp.campaign_type
+    camp.campaign_type,
+    fp.responsible_iam_user_id,
+    ru.fullname AS responsible_name
    FROM flow_pipelines fp
      LEFT JOIN ( SELECT flow_stages.flow_pipeline_id,
             count(*) AS stage_count
@@ -44,4 +46,6 @@ SELECT fp.id,
           WHERE c.deleted_at IS NULL
             AND ((fp.object_type LIKE '%Campaigns' AND fp.object_id = c.id) OR c.flow_pipeline_id = fp.id)
           ORDER BY c.id
-         LIMIT 1) camp ON true;
+         LIMIT 1) camp ON true
+     -- The pipeline's responsible person (leo4#1399).
+     LEFT JOIN iam_users ru ON ru.id = fp.responsible_iam_user_id;

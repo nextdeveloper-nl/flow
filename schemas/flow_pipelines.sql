@@ -13,11 +13,13 @@ CREATE TABLE flow_pipelines (
     is_active       boolean NOT NULL DEFAULT true,
     kind            text NOT NULL DEFAULT 'custom', -- What the pipeline is for: sales | marketing | project | custom. Not the item type (see object_type).
     iam_account_id  bigint,
-    iam_user_id     bigint,
+    iam_user_id     bigint, -- Creator. flow-user's update/delete policy treats this as the owner.
+    responsible_iam_user_id bigint, -- The person responsible for the pipeline (a member of iam_account_id). leo4#1399.
     created_at      timestamp with time zone NOT NULL DEFAULT now(),
     updated_at      timestamp with time zone NOT NULL DEFAULT now(),
     deleted_at      timestamp with time zone,
     CONSTRAINT flow_pipelines_pkey PRIMARY KEY (id),
+    CONSTRAINT flow_pipelines_responsible_iam_user_id_fkey FOREIGN KEY (responsible_iam_user_id) REFERENCES iam_users (id) ON DELETE SET NULL,
     CONSTRAINT flow_pipelines_kind_check CHECK (kind IN ('sales', 'marketing', 'project', 'custom'))
 );
 
@@ -26,3 +28,4 @@ CREATE INDEX idx_flow_pipelines_is_template ON public.flow_pipelines USING btree
 CREATE INDEX idx_flow_pipelines_object_type ON public.flow_pipelines USING btree (object_type);
 CREATE INDEX idx_flow_pipelines_object_id ON public.flow_pipelines USING btree (object_id);
 CREATE INDEX idx_flow_pipelines_kind ON public.flow_pipelines USING btree (kind);
+CREATE INDEX idx_flow_pipelines_responsible ON public.flow_pipelines USING btree (responsible_iam_user_id);

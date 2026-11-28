@@ -30,6 +30,7 @@ use NextDeveloper\Commons\Database\Traits\RunAsAdministrator;
  * @property string $kind
  * @property integer $iam_account_id
  * @property integer $iam_user_id
+ * @property integer $responsible_iam_user_id
  * @property \Carbon\Carbon $created_at
  * @property \Carbon\Carbon $updated_at
  * @property \Carbon\Carbon $deleted_at
@@ -60,6 +61,7 @@ class Pipelines extends Model
             'kind',
             'iam_account_id',
             'iam_user_id',
+            'responsible_iam_user_id',
     ];
 
     /**

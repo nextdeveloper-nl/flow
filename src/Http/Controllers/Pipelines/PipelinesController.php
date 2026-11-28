@@ -187,7 +187,8 @@ class PipelinesController extends AbstractController
 
     /**
      * Creates a pipeline + ordered stages without a campaign: from a config-defined template,
-     * or blank for the given kind. Body: kind?, template_id?, name? (one of kind/template_id).
+     * or blank for the given kind. Body: kind?, template_id?, name? (one of kind/template_id),
+     * responsible_iam_user_id? (a member of the current account, leo4#1399).
      *
      * @param  PipelinesFromTemplateRequest $request
      * @return \Illuminate\Http\JsonResponse
@@ -199,7 +200,8 @@ class PipelinesController extends AbstractController
         $model = PipelinesService::createFromTemplate(
             $data['template_id'] ?? null,
             $data['name'] ?? null,
-            $data['kind'] ?? null
+            $data['kind'] ?? null,
+            $data['responsible_iam_user_id'] ?? null
         );
 
         return ResponsableFactory::makeResponse($this, $model);
